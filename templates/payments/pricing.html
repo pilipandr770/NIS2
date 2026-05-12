@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Tarife{% endblock %}
+{% block page_title %}Tarife und Preise{% endblock %}
+{% block content %}
+<div class="row g-4 justify-content-center">
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-body p-4">
+        <h3 class="fw-700">Basic</h3>
+        <div class="my-3"><span style="font-size:2.5rem;font-weight:800;">49 EUR</span>/Monat</div>
+        <ul class="list-unstyled">
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>BSI-Registrierungsassistent</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>ISMS-Dokumente (5 Typen)</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Incident Response</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>10 Schulungen/Monat</li>
+        </ul>
+        <a href="mailto:info@nis2-compliance.de?subject=Basic Plan" class="btn btn-outline-primary w-100 mt-3">Basic wahlen</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card h-100 border-primary">
+      <div class="card-header bg-primary text-white text-center fw-700">Empfohlen</div>
+      <div class="card-body p-4">
+        <h3 class="fw-700">Professional</h3>
+        <div class="my-3"><span style="font-size:2.5rem;font-weight:800;">149 EUR</span>/Monat</div>
+        <ul class="list-unstyled">
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Alles aus Basic</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Alle 10 ISMS-Dokumenttypen</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Lieferketten-Risikoregister</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Kontinuierliches Monitoring</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Site Security Audit</li>
+          <li class="py-1"><i class="bi bi-check-circle-fill text-success me-2"></i>Unbegrenzte Schulungen</li>
+        </ul>
+        <a href="mailto:info@nis2-compliance.de?subject=Professional Plan" class="btn btn-primary w-100 mt-3">Professional wahlen</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

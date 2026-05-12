@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Profil{% endblock %}
+{% block page_title %}Mein Profil{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Personliche Daten</div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Vorname</label>
+              <input type="text" name="first_name" class="form-control" value="{{ current_user.first_name or '' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Nachname</label>
+              <input type="text" name="last_name" class="form-control" value="{{ current_user.last_name or '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Unternehmen</label>
+              <input type="text" name="company_name" class="form-control" value="{{ current_user.company_name or '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Telefon</label>
+              <input type="text" name="phone" class="form-control" value="{{ current_user.phone or '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Neues Passwort (leer = unverandert)</label>
+              <input type="password" name="new_password" class="form-control" minlength="8">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">Speichern</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Abonnement</div>
+      <div class="card-body">
+        <div class="fw-700 mb-1">{{ current_user.plan_label }}</div>
+        {% if current_user.subscription_plan == 'trial' and current_user.trial_ends_at %}
+        <div class="text-muted small mb-3">Testphase bis {{ current_user.trial_ends_at.strftime('%d.%m.%Y') }}</div>
+        {% endif %}
+        <a href="{{ url_for('payments.pricing') }}" class="btn btn-outline-primary btn-sm">Tarif upgraden</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

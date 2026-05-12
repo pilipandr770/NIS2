@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Registrieren — NIS2 Compliance{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-sm-10 col-md-8 col-lg-6 col-xl-5">
+    <div class="text-center mb-4">
+      <i class="bi bi-shield-plus text-primary" style="font-size:2.5rem;"></i>
+      <h2 class="fw-700 mt-2">Kostenlos starten</h2>
+      <p class="text-muted small">14 Tage voller Zugang — keine Kreditkarte erforderlich</p>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('auth.register') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label fw-500">Vorname</label>
+              <input type="text" name="first_name" class="form-control" placeholder="Max">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-500">Nachname</label>
+              <input type="text" name="last_name" class="form-control" placeholder="Mustermann">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-500">Unternehmen</label>
+              <input type="text" name="company_name" class="form-control" placeholder="Muster GmbH">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-500">E-Mail-Adresse <span class="text-danger">*</span></label>
+              <input type="email" name="email" class="form-control" required autofocus
+                     placeholder="max@mustermann.de">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-500">Passwort <span class="text-danger">*</span></label>
+              <input type="password" name="password" class="form-control" required
+                     minlength="8" placeholder="Mindestens 8 Zeichen">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-500">Passwort bestätigen <span class="text-danger">*</span></label>
+              <input type="password" name="password2" class="form-control" required
+                     placeholder="Passwort wiederholen">
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="agree_terms" id="agreeTerms" required>
+                <label class="form-check-label small" for="agreeTerms">
+                  Ich stimme den <a href="#" target="_blank">Nutzungsbedingungen</a> und der
+                  <a href="#" target="_blank">Datenschutzerklärung</a> zu.
+                </label>
+              </div>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary w-100 fw-600 py-2">
+                <i class="bi bi-rocket me-1"></i> Jetzt kostenlos starten
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <p class="text-center text-muted small mt-3">
+      Bereits registriert?
+      <a href="{{ url_for('auth.login') }}" class="fw-600">Anmelden</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
