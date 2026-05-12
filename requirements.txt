@@ -39,3 +39,7 @@ APScheduler==3.10.4
 
 # ── Export / reports ─────────────────────────────────────────────
 WeasyPrint==62.3
+
+# ── MFA (§30 Nr. 10 BSIG — MFA & sichere Kommunikation) ──────────
+pyotp==2.9.0
+qrcode[pil]==8.2

@@ -39,7 +39,7 @@
     </div>
   </div>
   <div class="col-lg-6">
-    <div class="card">
+    <div class="card mb-4">
       <div class="card-header">Abonnement</div>
       <div class="card-body">
         <div class="fw-700 mb-1">{{ current_user.plan_label }}</div>
@@ -47,6 +47,47 @@
         <div class="text-muted small mb-3">Testphase bis {{ current_user.trial_ends_at.strftime('%d.%m.%Y') }}</div>
         {% endif %}
         <a href="{{ url_for('payments.pricing') }}" class="btn btn-outline-primary btn-sm">Tarif upgraden</a>
+      </div>
+    </div>
+
+    <!-- MFA / TOTP (§30 Nr. 10) -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shield-lock me-1"></i> Zwei-Faktor-Authentifizierung</span>
+        {% if current_user.totp_enabled %}
+          <span class="badge bg-success">Aktiv</span>
+        {% else %}
+          <span class="badge bg-secondary">Inaktiv</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if current_user.totp_enabled %}
+          <p class="small text-muted mb-3">
+            MFA ist aktiv. Bei jeder Anmeldung wird Ihr TOTP-Code benötigt.
+            Dies erfüllt die Anforderung nach §30 Nr. 10 BSIG (MFA für privilegierte Zugänge).
+          </p>
+          <form method="POST" action="{{ url_for('auth.mfa_disable') }}" class="row g-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-auto">
+              <input type="text" name="code" class="form-control font-monospace"
+                     placeholder="TOTP-Code zum Deaktivieren" maxlength="6" style="width:190px">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-outline-danger btn-sm"
+                      onclick="return confirm('MFA wirklich deaktivieren?')">
+                MFA deaktivieren
+              </button>
+            </div>
+          </form>
+        {% else %}
+          <p class="small text-muted mb-3">
+            Schützen Sie Ihren Account mit einem zweiten Faktor (TOTP).
+            Empfohlen nach §30 Nr. 10 BSIG und BSI IT-Grundschutz.
+          </p>
+          <a href="{{ url_for('auth.mfa_setup') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-shield-plus me-1"></i> MFA einrichten
+          </a>
+        {% endif %}
       </div>
     </div>
   </div>

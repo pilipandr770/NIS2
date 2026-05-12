@@ -163,20 +163,28 @@
 
     <div class="nav-section">Compliance</div>
     <a class="nav-link {% if 'bsi_registration' in (request.endpoint or '') %}active{% endif %}"
-       href="{{ url_for('nis2.bsi_check') }}">
+       href="{{ url_for('nis2.bsi_registration_landing') }}">
       <i class="bi bi-building-check"></i> BSI-Registrierung
     </a>
     <a class="nav-link {% if 'isms' in (request.endpoint or '') %}active{% endif %}"
        href="{{ url_for('nis2.isms_overview') }}">
       <i class="bi bi-file-earmark-text"></i> ISMS-Dokumente
     </a>
+    <a class="nav-link {% if 'risk' in (request.endpoint or '') %}active{% endif %}"
+       href="{{ url_for('nis2.risk_list') }}">
+      <i class="bi bi-shield-exclamation"></i> Risikoregister
+    </a>
     <a class="nav-link {% if 'incident' in (request.endpoint or '') %}active{% endif %}"
-       href="{{ url_for('nis2.incident_list') }}">
+       href="{{ url_for('nis2.incidents_list') }}">
       <i class="bi bi-exclamation-triangle"></i> Incident Response
     </a>
     <a class="nav-link {% if 'supply_chain' in (request.endpoint or '') %}active{% endif %}"
        href="{{ url_for('nis2.supply_chain_dashboard') }}">
       <i class="bi bi-diagram-3"></i> Lieferkette
+    </a>
+    <a class="nav-link {% if 'dsgvo' in (request.endpoint or '') %}active{% endif %}"
+       href="{{ url_for('nis2.dsgvo_list') }}">
+      <i class="bi bi-person-lock"></i> DSGVO Art. 30
     </a>
 
     <div class="nav-section">Sicherheit</div>
@@ -189,8 +197,22 @@
       <i class="bi bi-radar"></i> Monitoring
     </a>
     <a class="nav-link {% if 'audit' in (request.endpoint or '') %}active{% endif %}"
-       href="{{ url_for('nis2.audit_index') }}">
+       href="{{ url_for('nis2.site_audit_index') }}">
       <i class="bi bi-bug"></i> Site-Audit
+    </a>
+    <a class="nav-link {% if 'asset' in (request.endpoint or '') %}active{% endif %}"
+       href="{{ url_for('nis2.asset_list') }}">
+      <i class="bi bi-hdd-stack"></i> IT-Assets
+    </a>
+
+    <div class="nav-section">Berichte</div>
+    <a class="nav-link {% if 'fristen' in (request.endpoint or '') %}active{% endif %}"
+       href="{{ url_for('nis2.fristen') }}">
+      <i class="bi bi-calendar2-event"></i> Fristenkalender
+    </a>
+    <a class="nav-link {% if 'compliance_report' in (request.endpoint or '') %}active{% endif %}"
+       href="{{ url_for('nis2.compliance_report') }}">
+      <i class="bi bi-clipboard2-check"></i> §39 Compliance-Bericht
     </a>
   </div>
 
@@ -288,7 +310,7 @@
       </div>
     {% endfor %}
   {% endwith %}
-  {% block content %}{% endblock %}
+  {{ self.content() }}
 </div>
 {% endif %}
 

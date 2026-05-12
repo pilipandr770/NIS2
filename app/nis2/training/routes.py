@@ -203,6 +203,40 @@ def register_training_routes(bp):
                                acks=acks,
                                topics=dict(TRAINING_TOPICS))
 
+    # ── §38 BSIG: GF-Bestätigung (Verantwortliche/r liest zuerst) ──
+    @bp.route('/training/<int:training_id>/gf-acknowledge', methods=['POST'])
+    @login_required
+    @require_plan("professional")
+    def training_gf_acknowledge(training_id):
+        training = SecurityTraining.query.filter_by(
+            id=training_id, user_id=current_user.id
+        ).first_or_404()
+
+        if training.gf_acknowledged:
+            flash('Sie haben diese Schulung bereits als Verantwortliche/r bestätigt.', 'info')
+            return redirect(url_for('nis2.training_detail', training_id=training_id))
+
+        gf_name = request.form.get('gf_name', '').strip()
+        if not gf_name:
+            flash('Bitte geben Sie Ihren vollständigen Namen als Verantwortliche/r ein.', 'danger')
+            return redirect(url_for('nis2.training_detail', training_id=training_id))
+
+        ip = (request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+              or request.remote_addr or '')
+
+        training.gf_acknowledged = True
+        training.gf_acknowledged_at = datetime.utcnow()
+        training.gf_acknowledged_name = gf_name
+        training.gf_acknowledged_ip = ip[:45]
+        db.session.commit()
+
+        flash(
+            f'Bestätigung durch {gf_name} gespeichert (§38 BSIG). '
+            'Sie können die Schulung jetzt an Ihre Mitarbeiter versenden.',
+            'success',
+        )
+        return redirect(url_for('nis2.training_detail', training_id=training_id))
+
     # ── Send to audience ──────────────────────────────────────────
     @bp.route('/training/<int:training_id>/send', methods=['POST'])
     @login_required
@@ -211,6 +245,15 @@ def register_training_routes(bp):
         training = SecurityTraining.query.filter_by(
             id=training_id, user_id=current_user.id
         ).first_or_404()
+
+        # §38 BSIG: GF muss die Schulung selbst zuerst bestätigt haben
+        if not training.gf_acknowledged:
+            flash(
+                '§38 BSIG: Sie müssen die Schulung zunächst selbst lesen und als '
+                'Verantwortliche/r bestätigen, bevor sie an Mitarbeiter versendet werden kann.',
+                'warning',
+            )
+            return redirect(url_for('nis2.training_detail', training_id=training_id))
 
         audience = training.get_audience()
         if not audience:

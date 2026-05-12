@@ -134,6 +134,37 @@
     </div>
   </div>
 
+  <!-- Charts Row -->
+  <div class="row mb-4 g-3">
+    <!-- Radar: §30 Maßnahmen -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header">
+          <strong><i class="bi bi-diagram-2"></i> §30 Maßnahmen-Radar</strong>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height:280px">
+          <canvas id="radarChart" style="max-height:260px"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- Doughnut: Compliance-Verteilung + Deadline summary -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header">
+          <strong><i class="bi bi-pie-chart"></i> Compliance-Verteilung</strong>
+        </div>
+        <div class="card-body d-flex flex-column align-items-center justify-content-center gap-3" style="min-height:280px">
+          <canvas id="doughnutChart" style="max-height:200px;max-width:200px"></canvas>
+          <div class="d-flex gap-4 small">
+            <span><span class="badge bg-success me-1">&nbsp;</span>Erfüllt: {{ score_data.complete_count }}</span>
+            <span><span class="badge bg-warning text-dark me-1">&nbsp;</span>Teilweise: {{ score_data.partial_count }}</span>
+            <span><span class="badge bg-danger me-1">&nbsp;</span>Offen: {{ score_data.open_count }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Next Actions -->
   {% if score_data.next_actions %}
   <div class="row mb-4">
@@ -252,6 +283,104 @@
         </div>
       </a>
     </div>
+    <div class="col-md-3">
+      <a href="{{ url_for('nis2.risk_list') }}" class="text-decoration-none">
+        <div class="card border-0 shadow-sm p-3 text-center h-100">
+          <i class="bi bi-shield-exclamation fs-2 text-danger mb-2"></i>
+          <strong>Risikoregister</strong>
+          <small class="text-muted d-block">§30 Nr. 1 BSI 200-3</small>
+        </div>
+      </a>
+    </div>
+    <div class="col-md-3">
+      <a href="{{ url_for('nis2.dsgvo_list') }}" class="text-decoration-none">
+        <div class="card border-0 shadow-sm p-3 text-center h-100">
+          <i class="bi bi-person-lock fs-2 text-secondary mb-2"></i>
+          <strong>DSGVO Art. 30</strong>
+          <small class="text-muted d-block">Verarbeitungsverzeichnis</small>
+        </div>
+      </a>
+    </div>
   </div>
 </div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const radarLabels = [
+    {% for key, m in score_data.measures.items() %}
+      '{{ m.paragraph }}'{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+  const radarData = [
+    {% for key, m in score_data.measures.items() %}
+      {{ m.score|round|int }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: radarLabels,
+      datasets: [{
+        label: 'Erfüllungsgrad (%)',
+        data: radarData,
+        fill: true,
+        backgroundColor: 'rgba(13, 110, 253, 0.15)',
+        borderColor: 'rgba(13, 110, 253, 0.8)',
+        pointBackgroundColor: radarData.map(v =>
+          v >= 80 ? '#198754' : v >= 40 ? '#ffc107' : '#dc3545'
+        ),
+        pointRadius: 4,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        r: {
+          min: 0, max: 100,
+          ticks: { stepSize: 25, font: { size: 10 } },
+          pointLabels: { font: { size: 11 } },
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.raw + '%' } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('doughnutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Erfüllt', 'Teilweise', 'Offen'],
+      datasets: [{
+        data: [
+          {{ score_data.complete_count }},
+          {{ score_data.partial_count }},
+          {{ score_data.open_count }}
+        ],
+        backgroundColor: ['#198754', '#ffc107', '#dc3545'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      cutout: '68%',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' Maßnahme(n)'
+          }
+        }
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}
 {% endblock %}

@@ -49,6 +49,11 @@ class User(UserMixin, db.Model):
     password_reset_token = db.Column(db.String(100), unique=True)
     password_reset_expires = db.Column(db.DateTime)
 
+    # TOTP / MFA (§30 Nr. 10 BSIG)
+    totp_secret = db.Column(db.String(64))
+    totp_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    totp_backup_codes_json = db.Column(db.Text)  # JSON list of unused backup codes
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     last_login = db.Column(db.DateTime)
@@ -63,6 +68,44 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
+
+    # ── TOTP / MFA ────────────────────────────────────────────────────────
+
+    def generate_totp_secret(self) -> str:
+        import pyotp
+        self.totp_secret = pyotp.random_base32()
+        return self.totp_secret
+
+    def get_totp_uri(self) -> str:
+        import pyotp
+        return pyotp.totp.TOTP(self.totp_secret).provisioning_uri(
+            name=self.email,
+            issuer_name='NIS2 Compliance Platform',
+        )
+
+    def verify_totp(self, code: str) -> bool:
+        import pyotp
+        if not self.totp_secret:
+            return False
+        totp = pyotp.TOTP(self.totp_secret)
+        return totp.verify(code, valid_window=1)
+
+    def generate_backup_codes(self) -> list:
+        codes = [secrets.token_hex(4).upper() for _ in range(8)]
+        self.totp_backup_codes_json = __import__('json').dumps(codes)
+        return codes
+
+    def use_backup_code(self, code: str) -> bool:
+        import json
+        if not self.totp_backup_codes_json:
+            return False
+        codes = json.loads(self.totp_backup_codes_json)
+        code_upper = code.strip().upper()
+        if code_upper in codes:
+            codes.remove(code_upper)
+            self.totp_backup_codes_json = json.dumps(codes)
+            return True
+        return False
 
     # ── Email confirmation ────────────────────────────────────────────────
 

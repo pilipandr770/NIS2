@@ -1,13 +1,16 @@
 """
-Auth blueprint — Registration, Login, Logout, Email Confirmation, Password Reset.
+Auth blueprint — Registration, Login, Logout, Email Confirmation, Password Reset, MFA.
 """
 
+import io
+import base64
+import json
 import logging
 from datetime import datetime, timedelta
 
 from flask import (
     Blueprint, render_template, redirect, url_for,
-    flash, request, current_app,
+    flash, request, current_app, session,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_mail import Message
@@ -105,6 +108,14 @@ def login():
         if not user.is_active:
             flash('Ihr Konto wurde deaktiviert. Bitte kontaktieren Sie den Support.', 'danger')
             return render_template('auth/login.html')
+
+        # If TOTP is enabled, hold the user ID in session and require code
+        if user.totp_enabled:
+            session['mfa_user_id'] = user.id
+            session['mfa_remember'] = remember
+            next_page = request.args.get('next', '')
+            session['mfa_next'] = next_page if next_page.startswith('/') else ''
+            return redirect(url_for('auth.mfa_verify'))
 
         user.last_login = datetime.utcnow()
         db.session.commit()
@@ -242,6 +253,108 @@ def profile():
         return redirect(url_for('auth.profile'))
 
     return render_template('auth/profile.html')
+
+
+# ── MFA / TOTP ────────────────────────────────────────────────────────────────
+
+@auth_bp.route('/mfa/verify', methods=['GET', 'POST'])
+def mfa_verify():
+    user_id = session.get('mfa_user_id')
+    if not user_id:
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(user_id)
+    if not user:
+        session.pop('mfa_user_id', None)
+        return redirect(url_for('auth.login'))
+
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip().replace(' ', '')
+
+        verified = False
+        used_backup = False
+
+        if len(code) == 6 and code.isdigit():
+            verified = user.verify_totp(code)
+        elif len(code) == 8:  # backup code format XXXXXXXX
+            verified = user.use_backup_code(code)
+            used_backup = verified
+
+        if verified:
+            if used_backup:
+                db.session.commit()  # save consumed backup code
+            remember = session.pop('mfa_remember', False)
+            next_page = session.pop('mfa_next', '')
+            session.pop('mfa_user_id', None)
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+            login_user(user, remember=remember)
+            if used_backup:
+                flash('Backup-Code verwendet. Bitte generieren Sie neue Codes.', 'warning')
+            return redirect(next_page or url_for('nis2.dashboard'))
+
+        flash('Ungültiger Code. Bitte versuchen Sie es erneut.', 'danger')
+
+    return render_template('auth/mfa_verify.html')
+
+
+@auth_bp.route('/mfa/setup', methods=['GET', 'POST'])
+@login_required
+def mfa_setup():
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip()
+        if not current_user.totp_secret:
+            flash('Kein TOTP-Secret gesetzt. Bitte neu laden.', 'danger')
+            return redirect(url_for('auth.mfa_setup'))
+
+        if current_user.verify_totp(code):
+            current_user.totp_enabled = True
+            backup_codes = current_user.generate_backup_codes()
+            db.session.commit()
+            flash('Zwei-Faktor-Authentifizierung erfolgreich aktiviert!', 'success')
+            return render_template('auth/mfa_backup_codes.html', backup_codes=backup_codes)
+
+        flash('Ungültiger Code — bitte erneut scannen und versuchen.', 'danger')
+
+    # Generate a fresh secret on GET (overwrites any unconfirmed one)
+    if not current_user.totp_enabled:
+        current_user.generate_totp_secret()
+        db.session.commit()
+
+    totp_uri = current_user.get_totp_uri()
+    qr_image_b64 = _generate_qr_b64(totp_uri)
+
+    return render_template('auth/mfa_setup.html',
+                           totp_uri=totp_uri,
+                           qr_image_b64=qr_image_b64,
+                           secret=current_user.totp_secret)
+
+
+@auth_bp.route('/mfa/disable', methods=['POST'])
+@login_required
+def mfa_disable():
+    code = request.form.get('code', '').strip()
+    if not current_user.verify_totp(code):
+        flash('Ungültiger TOTP-Code. MFA wurde nicht deaktiviert.', 'danger')
+        return redirect(url_for('auth.profile'))
+
+    current_user.totp_enabled = False
+    current_user.totp_secret = None
+    current_user.totp_backup_codes_json = None
+    db.session.commit()
+    flash('Zwei-Faktor-Authentifizierung wurde deaktiviert.', 'info')
+    return redirect(url_for('auth.profile'))
+
+
+def _generate_qr_b64(uri: str) -> str:
+    import qrcode
+    qr = qrcode.QRCode(box_size=6, border=2)
+    qr.add_data(uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color='black', back_color='white')
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return base64.b64encode(buf.getvalue()).decode('ascii')
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

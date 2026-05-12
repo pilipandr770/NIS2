@@ -127,7 +127,7 @@ class BSIRegistration(db.Model):
                         nullable=False, index=True)
 
     # ── Schritt 1: Unternehmensdaten ──────────────────────────────
-    company_name = db.Column(db.String(300), nullable=False)
+    company_name = db.Column(db.String(300), nullable=True)
     legal_form = db.Column(db.String(50))
     hrb_number = db.Column(db.String(50))
     registry_court = db.Column(db.String(100))
@@ -841,6 +841,14 @@ class SecurityTraining(db.Model):
     sent_at = db.Column(db.DateTime)
     closed_at = db.Column(db.DateTime)
 
+    # §38 BSIG — Geschäftsführer-Bestätigung (Pflicht vor dem Versand an Mitarbeiter)
+    # Der/die Verantwortliche muss die Schulung selbst lesen und bestätigen,
+    # bevor sie an Mitarbeiter versendet werden kann.
+    gf_acknowledged = db.Column(db.Boolean, default=False, nullable=False)
+    gf_acknowledged_at = db.Column(db.DateTime)
+    gf_acknowledged_name = db.Column(db.String(200))   # vollständiger Name der GF
+    gf_acknowledged_ip = db.Column(db.String(45))       # IPv4 oder IPv6
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1033,3 +1041,333 @@ class NIS2AuditTask(db.Model):
 
     def __repr__(self):
         return f'<NIS2AuditTask [{self.category}] {self.title[:50]} done={self.done}>'
+
+
+# ─────────────────────────────────────────────────────────────────
+# IT ASSET INVENTORY (§30 Nr. 5 + Nr. 9 BSIG)
+# ─────────────────────────────────────────────────────────────────
+
+ASSET_CATEGORIES = [
+    ('server',       'Server / On-Premises'),
+    ('cloud',        'Cloud-Dienst / SaaS'),
+    ('workstation',  'Arbeitsplatz / Laptop'),
+    ('network',      'Netzwerkgerät (Router, Switch, Firewall)'),
+    ('mobile',       'Mobiles Endgerät (Smartphone, Tablet)'),
+    ('software',     'Software / Applikation'),
+    ('iot',          'IoT / OT / Embedded'),
+    ('other',        'Sonstiges'),
+]
+
+ASSET_CRITICALITIES = [
+    ('critical', 'Kritisch — Kerngeschäft'),
+    ('high',     'Hoch — wichtiger Prozess'),
+    ('medium',   'Mittel'),
+    ('low',      'Niedrig'),
+]
+
+
+class ITAsset(db.Model):
+    """IT-Asset-Inventar (§30 Nr. 5 Schwachstellenmanagement / Nr. 9 IAM)."""
+
+    __tablename__ = 'nis2_it_assets'
+    __table_args__ = {'schema': SCHEMA} if SCHEMA else {}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(f'{_sp}users.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+
+    # Identification
+    name = db.Column(db.String(200), nullable=False)
+    asset_type = db.Column(db.String(30), default='other')    # ASSET_CATEGORIES value
+    category = db.synonym('asset_type')
+    description = db.Column(db.Text)
+    vendor = db.Column(db.String(200))
+    version = db.Column(db.String(100))
+    serial_number = db.Column(db.String(100))
+    ip_address = db.Column(db.String(45))
+    hostname = db.Column(db.String(255))
+    location = db.Column(db.String(200))       # physical or logical ("AWS eu-central-1")
+
+    # Ownership & responsibility
+    owner_name = db.Column(db.String(200))
+    owner_email = db.Column(db.String(200))
+    department = db.Column(db.String(100))
+
+    # Risk & criticality
+    criticality = db.Column(db.String(20), default='medium')   # ASSET_CRITICALITIES value
+    is_internet_facing = db.Column(db.Boolean, default=False)
+    stores_personal_data = db.Column(db.Boolean, default=False)  # DSGVO Art. 30
+
+    # Patch / vulnerability management
+    last_patched_at = db.Column(db.Date)
+    next_patch_due = db.Column(db.Date)
+    known_vulnerabilities = db.Column(db.Text)                 # free text / CVE list
+    patch_status = db.Column(db.String(20), default='unknown') # current | outdated | unknown
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    decommissioned_at = db.Column(db.Date)
+    notes = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+
+    @property
+    def criticality_color(self):
+        return {'critical': 'danger', 'high': 'warning',
+                'medium': 'info', 'low': 'secondary'}.get(self.criticality, 'secondary')
+
+    @property
+    def category_label(self):
+        t = self.asset_type or 'other'
+        return dict(ASSET_CATEGORIES).get(t, t)
+
+    @property
+    def patch_overdue(self):
+        if not self.next_patch_due:
+            return False
+        return date.today() > self.next_patch_due
+
+    def __repr__(self):
+        return f'<ITAsset {self.name} [{self.asset_type}]>'
+
+
+# ─────────────────────────────────────────────────────────────────
+# RISIKOREGISTER (§30 Nr. 1 BSIG — Risikoanalyse & -bewertung)
+# ─────────────────────────────────────────────────────────────────
+
+RISK_CATEGORIES = [
+    ('cyber_attack',    'Cyberangriff / Hacking'),
+    ('malware',         'Malware / Ransomware'),
+    ('data_breach',     'Datenpanne / Datenverlust'),
+    ('availability',    'Verfügbarkeitsausfall / DDoS'),
+    ('supply_chain',    'Lieferketten-Risiko'),
+    ('insider',         'Insider-Bedrohung'),
+    ('physical',        'Physische Bedrohung'),
+    ('compliance',      'Compliance / Regulatorik'),
+    ('natural',         'Naturgewalt / Infrastrukturausfall'),
+    ('human_error',     'Menschliches Versagen'),
+    ('other',           'Sonstiges'),
+]
+
+RISK_STATUSES = [
+    ('open',        'Offen — unbehandelt'),
+    ('in_treatment','In Behandlung'),
+    ('accepted',    'Akzeptiert (Restrisiko)'),
+    ('mitigated',   'Mitigiert — Maßnahmen umgesetzt'),
+    ('closed',      'Geschlossen'),
+]
+
+TREATMENT_TYPES = [
+    ('mitigate',  'Mitigieren — Maßnahmen ergreifen'),
+    ('accept',    'Akzeptieren — Restrisiko bewusst tragen'),
+    ('transfer',  'Transferieren — z.B. Versicherung'),
+    ('avoid',     'Vermeiden — Aktivität einstellen'),
+]
+
+
+class Risk(db.Model):
+    """Risikoeintrag im Risikoregister (§30 Nr. 1 BSIG / BSI 200-3)."""
+
+    __tablename__ = 'nis2_risks'
+    __table_args__ = {'schema': SCHEMA} if SCHEMA else {}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(f'{_sp}users.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+
+    # Identification
+    title = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text)
+    category = db.Column(db.String(30), default='other')
+
+    # Affected asset / system (free-text; FK optional)
+    affected_asset = db.Column(db.String(200))
+    asset_id = db.Column(db.Integer,
+                         db.ForeignKey(f'{_sp}nis2_it_assets.id', ondelete='SET NULL'),
+                         nullable=True)
+
+    # Risk scoring (BSI 200-3 / ISO 27005 5×5 matrix)
+    likelihood = db.Column(db.Integer, default=3)   # 1 (selten) – 5 (sehr häufig)
+    impact = db.Column(db.Integer, default=3)        # 1 (gering) – 5 (existenziell)
+
+    # Treatment
+    treatment_type = db.Column(db.String(20), default='mitigate')
+    treatment_plan = db.Column(db.Text)
+    residual_likelihood = db.Column(db.Integer)      # after controls
+    residual_impact = db.Column(db.Integer)
+
+    # Ownership & timeline
+    risk_owner = db.Column(db.String(200))
+    review_date = db.Column(db.Date)
+    status = db.Column(db.String(20), default='open', index=True)
+
+    # NIS2 paragraph linkage
+    nis2_ref = db.Column(db.String(100))             # e.g. "§30 Nr. 1, 2, 5"
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+
+    # Relationship to ITAsset
+    asset = db.relationship('ITAsset', foreign_keys=[asset_id], lazy='select')
+
+    @property
+    def risk_score(self) -> int:
+        return (self.likelihood or 1) * (self.impact or 1)
+
+    @property
+    def residual_score(self):
+        if self.residual_likelihood and self.residual_impact:
+            return self.residual_likelihood * self.residual_impact
+        return None
+
+    @property
+    def risk_level(self) -> str:
+        s = self.risk_score
+        if s >= 15:
+            return 'critical'
+        if s >= 9:
+            return 'high'
+        if s >= 4:
+            return 'medium'
+        return 'low'
+
+    @property
+    def risk_color(self) -> str:
+        return {'critical': 'danger', 'high': 'warning',
+                'medium': 'info', 'low': 'success'}.get(self.risk_level, 'secondary')
+
+    @property
+    def category_label(self) -> str:
+        return dict(RISK_CATEGORIES).get(self.category or 'other', 'Sonstiges')
+
+    @property
+    def review_overdue(self) -> bool:
+        if not self.review_date:
+            return False
+        return date.today() > self.review_date
+
+    def __repr__(self):
+        return f'<Risk {self.id} [{self.risk_level}] {self.title[:50]}>'
+
+
+# ─────────────────────────────────────────────────────────────────
+# DSGVO ART. 30 — VERARBEITUNGSVERZEICHNIS
+# ─────────────────────────────────────────────────────────────────
+
+LEGAL_BASES = [
+    ('consent',        'Einwilligung (Art. 6 Abs. 1 lit. a)'),
+    ('contract',       'Vertragserfüllung (Art. 6 Abs. 1 lit. b)'),
+    ('legal_obligation','Rechtliche Verpflichtung (Art. 6 Abs. 1 lit. c)'),
+    ('vital_interests','Lebenswichtige Interessen (Art. 6 Abs. 1 lit. d)'),
+    ('public_task',    'Öffentliche Aufgabe (Art. 6 Abs. 1 lit. e)'),
+    ('legitimate_interests','Berechtigte Interessen (Art. 6 Abs. 1 lit. f)'),
+]
+
+DATA_CATEGORIES_OPTIONS = [
+    'Name / Kontaktdaten',
+    'E-Mail-Adresse',
+    'Adressdaten',
+    'Geburtsdatum',
+    'Bankverbindung / Zahlungsdaten',
+    'IP-Adressen / Log-Daten',
+    'Standortdaten',
+    'Mitarbeiterdaten (HR)',
+    'Kundendaten',
+    'Gesundheitsdaten (besondere Kategorie)',
+    'Biometrische Daten (besondere Kategorie)',
+    'Politische Meinung (besondere Kategorie)',
+    'Sonstige',
+]
+
+DATA_SUBJECT_TYPES = [
+    'Mitarbeiter',
+    'Kunden / Auftraggeber',
+    'Bewerber',
+    'Lieferanten / Partner',
+    'Website-Besucher',
+    'Patienten',
+    'Sonstige',
+]
+
+
+class ProcessingActivity(db.Model):
+    """Verarbeitungstätigkeit nach DSGVO Art. 30 (Verarbeitungsverzeichnis)."""
+
+    __tablename__ = 'nis2_processing_activities'
+    __table_args__ = {'schema': SCHEMA} if SCHEMA else {}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(f'{_sp}users.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+
+    # Core fields (Art. 30 Abs. 1 DSGVO)
+    name = db.Column(db.String(300), nullable=False)
+    purpose = db.Column(db.Text, nullable=False)
+    legal_basis = db.Column(db.String(50))
+    legal_basis_notes = db.Column(db.Text)
+
+    # Data & subjects (JSON lists)
+    data_categories_json = db.Column(db.Text)        # categories of personal data
+    data_subject_types_json = db.Column(db.Text)     # types of data subjects
+
+    # Recipients / transfers
+    recipients = db.Column(db.Text)                  # who receives data
+    third_country_transfer = db.Column(db.Boolean, default=False)
+    third_country_safeguards = db.Column(db.Text)    # e.g. SCCs, BCR
+
+    # Retention
+    retention_period = db.Column(db.String(200))     # e.g. "7 Jahre (§257 HGB)"
+    deletion_process = db.Column(db.Text)
+
+    # Technical & organisational measures (TOMs)
+    technical_measures = db.Column(db.Text)          # short description of TOMs
+
+    # Processor (Auftragsverarbeiter) — optional FK to Supplier
+    processor_id = db.Column(db.Integer,
+                             db.ForeignKey(f'{_sp}nis2_suppliers.id', ondelete='SET NULL'),
+                             nullable=True)
+    processor_name = db.Column(db.String(300))       # free-text if no FK
+
+    # Risk assessment
+    is_high_risk = db.Column(db.Boolean, default=False)  # triggers DSFA (Art. 35)
+    dsfa_done = db.Column(db.Boolean, default=False)     # Datenschutz-Folgenabschätzung
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    last_reviewed_at = db.Column(db.DateTime)
+    next_review_date = db.Column(db.Date)
+    notes = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+
+    processor = db.relationship('Supplier', foreign_keys=[processor_id], lazy='select')
+
+    def get_data_categories(self):
+        try:
+            return json.loads(self.data_categories_json) if self.data_categories_json else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def get_data_subjects(self):
+        try:
+            return json.loads(self.data_subject_types_json) if self.data_subject_types_json else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @property
+    def legal_basis_label(self) -> str:
+        return dict(LEGAL_BASES).get(self.legal_basis or '', self.legal_basis or '–')
+
+    @property
+    def review_overdue(self) -> bool:
+        if not self.next_review_date:
+            return False
+        return date.today() > self.next_review_date
+
+    def __repr__(self):
+        return f'<ProcessingActivity {self.name[:50]}>'

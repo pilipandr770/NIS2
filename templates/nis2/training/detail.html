@@ -13,7 +13,7 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}
-      <div class="alert alert-{{ cat }} alert-dismissible fade show">
+      <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show">
         {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
     {% endfor %}
@@ -30,6 +30,15 @@
           {{ training.status | upper }}
         </span>
         <small class="text-muted">{{ training.topic_label }}</small>
+        {% if training.gf_acknowledged %}
+          <span class="badge bg-success-subtle text-success border border-success">
+            <i class="bi bi-person-check me-1"></i>§38 GF bestätigt
+          </span>
+        {% else %}
+          <span class="badge bg-warning-subtle text-warning border border-warning">
+            <i class="bi bi-exclamation-triangle me-1"></i>§38 GF-Bestätigung ausstehend
+          </span>
+        {% endif %}
       </div>
       <h1 class="h3 mb-0">{{ training.title }}</h1>
       {% if training.due_date %}
@@ -56,8 +65,83 @@
     </div>
   </div>
 
+  <!-- ── §38 BSIG GF-Bestätigungs-Block ─────────────────────── -->
+  {% if not training.gf_acknowledged %}
+  <div class="alert alert-warning border-warning shadow-sm mb-4" role="alert">
+    <div class="d-flex gap-3 align-items-start">
+      <i class="bi bi-person-exclamation fs-3 text-warning mt-1 flex-shrink-0"></i>
+      <div class="flex-grow-1">
+        <h5 class="alert-heading mb-1">§38 BSIG — Pflicht: Verantwortliche/r muss zuerst lesen</h5>
+        <p class="mb-3 small">
+          Nach §38 BSIG sind <strong>Geschäftsleiter und Leitungsorgane persönlich verpflichtet</strong>,
+          Schulungsmaßnahmen zu kennen und zu billigen. Lesen Sie den Inhalt dieser Schulung vollständig
+          und bestätigen Sie dies mit Ihrem Namen. Erst danach kann die Schulung an Mitarbeiter versendet werden.
+        </p>
+
+        <!-- Schulungsinhalt für GF-Lektüre -->
+        <div class="card border-warning mb-3">
+          <div class="card-header bg-warning bg-opacity-10 fw-semibold small">
+            <i class="bi bi-book me-1"></i> Schulungsinhalt — bitte vollständig lesen
+          </div>
+          <div class="card-body" style="max-height:400px;overflow-y:auto;font-size:14px">
+            <div class="prose">
+              {{ training.content_md
+                 | replace('### ', '<h5>')
+                 | replace('## ', '<h4>')
+                 | replace('# ', '<h3>')
+                 | replace('\n\n', '</p><p>')
+                 | replace('\n', '<br>')
+                 | safe }}
+            </div>
+          </div>
+        </div>
+
+        <!-- GF-Bestätigungsformular -->
+        <form method="POST"
+              action="{{ url_for('nis2.training_gf_acknowledge', training_id=training.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-7">
+              <label class="form-label fw-semibold mb-1">
+                Ich, <span class="text-danger">_____________________</span>,
+                habe den obigen Schulungsinhalt vollständig gelesen und bestätige
+                ihn als verantwortliche Führungskraft gemäß §38 BSIG:
+              </label>
+              <input type="text" name="gf_name" class="form-control" required
+                     placeholder="Vollständiger Name (z.B. Max Mustermann, Geschäftsführer)">
+            </div>
+            <div class="col-md-5">
+              <button type="submit" class="btn btn-warning w-100">
+                <i class="bi bi-pen me-1"></i> Gelesen &amp; bestätigt (§38 BSIG)
+              </button>
+            </div>
+          </div>
+          <div class="form-text mt-1">
+            Ihre Bestätigung wird mit Zeitstempel und IP-Adresse protokolliert (Audit Trail für §39 BSIG).
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <!-- GF hat bestätigt — zeige Bestätigungs-Badge -->
+  <div class="alert alert-success border-success shadow-sm mb-4">
+    <div class="d-flex gap-3 align-items-center">
+      <i class="bi bi-person-check-fill fs-3 text-success flex-shrink-0"></i>
+      <div>
+        <strong>§38 BSIG — Verantwortliche/r hat bestätigt:</strong>
+        <span class="ms-2">{{ training.gf_acknowledged_name }}</span>
+        <span class="text-muted ms-2 small">
+          am {{ training.gf_acknowledged_at.strftime('%d.%m.%Y um %H:%M Uhr') }}
+        </span>
+        <div class="form-text">Audit Trail: Bestätigung für §39 BSIG-Nachweis gespeichert.</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="row g-4">
-    <!-- Stats -->
+    <!-- Linke Spalte: Stats + Versand -->
     <div class="col-md-3">
       <div class="row g-3">
         <div class="col-6 col-md-12">
@@ -88,35 +172,41 @@
         {% endif %}
       </div>
 
-      <!-- Send button -->
-      {% if training.status == 'draft' %}
+      <!-- Versand-Button — nur wenn GF bestätigt hat -->
       <div class="card border-0 shadow-sm mt-3 p-3">
-        <p class="small text-muted mb-2">Schulung ist noch ein Entwurf. Jetzt versenden?</p>
-        <form method="POST" action="{{ url_for('nis2.training_send', training_id=training.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-primary w-100">
-            <i class="bi bi-send me-1"></i> An alle versenden
+        {% if not training.gf_acknowledged %}
+          <p class="small text-warning mb-2">
+            <i class="bi bi-lock me-1"></i>
+            Erst §38-Bestätigung durch Verantwortliche/r erforderlich.
+          </p>
+          <button class="btn btn-secondary w-100" disabled>
+            <i class="bi bi-send me-1"></i> An Mitarbeiter versenden
           </button>
-        </form>
+        {% elif training.status == 'draft' %}
+          <p class="small text-muted mb-2">§38 ✓ — Jetzt an Mitarbeiter versenden:</p>
+          <form method="POST" action="{{ url_for('nis2.training_send', training_id=training.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary w-100">
+              <i class="bi bi-send me-1"></i> An alle versenden
+            </button>
+          </form>
+        {% elif training.status == 'sent' %}
+          <p class="small text-muted mb-2">Neue Empfänger hinzugefügt? Erneut versenden:</p>
+          <form method="POST" action="{{ url_for('nis2.training_send', training_id=training.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-primary w-100 btn-sm">
+              <i class="bi bi-send me-1"></i> Neue Empfänger senden
+            </button>
+          </form>
+        {% endif %}
       </div>
-      {% elif training.status == 'sent' %}
-      <div class="card border-0 shadow-sm mt-3 p-3">
-        <p class="small text-muted mb-2">Neue Empfänger hinzugefügt? Erneut versenden:</p>
-        <form method="POST" action="{{ url_for('nis2.training_send', training_id=training.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-outline-primary w-100 btn-sm">
-            <i class="bi bi-send me-1"></i> Neue Empfänger senden
-          </button>
-        </form>
-      </div>
-      {% endif %}
     </div>
 
-    <!-- Recipient table -->
+    <!-- Rechte Spalte: Empfänger-Tabelle -->
     <div class="col-md-9">
       <div class="card border-0 shadow-sm">
         <div class="card-header bg-transparent fw-semibold">
-          Empfänger & Bestätigungen
+          Empfänger &amp; Mitarbeiter-Bestätigungen
         </div>
         {% if acks %}
         <div class="table-responsive">
@@ -172,22 +262,32 @@
         {% else %}
         <div class="card-body text-muted text-center py-4">
           <i class="bi bi-people display-5 d-block mb-2 opacity-25"></i>
-          Noch keine Empfänger. Schulung versenden, um Bestätigungen zu erhalten.
+          {% if not training.gf_acknowledged %}
+            Zuerst §38-Bestätigung durch Verantwortliche/r erforderlich.
+          {% else %}
+            Noch keine Empfänger. Schulung versenden, um Bestätigungen zu erhalten.
+          {% endif %}
         </div>
         {% endif %}
       </div>
 
-      <!-- Content preview -->
+      <!-- Schulungsinhalt (nach GF-Bestätigung als Vorschau) -->
+      {% if training.gf_acknowledged %}
       <div class="card border-0 shadow-sm mt-3">
         <div class="card-header bg-transparent fw-semibold">
           <i class="bi bi-file-text me-1"></i> Schulungsinhalt (Vorschau)
         </div>
         <div class="card-body" style="font-size:14px">
           <div class="prose">
-            {{ training.content_md | replace('### ', '<h5>') | replace('## ', '<h4>') | replace('# ', '<h3>') | safe }}
+            {{ training.content_md
+               | replace('### ', '<h5>')
+               | replace('## ', '<h4>')
+               | replace('# ', '<h3>')
+               | safe }}
           </div>
         </div>
       </div>
+      {% endif %}
     </div>
   </div>
 </div>

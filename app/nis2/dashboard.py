@@ -97,16 +97,20 @@ def _calculate_compliance_score(user_id: int) -> dict:
     }
 
     # ── Nr. 5: Schwachstellenmanagement ──────────────────────────────────
+    from .models import ITAsset
     scan_count = MonitoringScan.query.join(MonitoringTarget).filter(
         MonitoringTarget.user_id == user_id
     ).count()
+    asset_count = ITAsset.query.filter_by(user_id=user_id, is_active=True).count()
+    nr5_score = min(100, (50 if scan_count > 0 else 0) + (50 if asset_count > 0 else 0))
     measures['nr5'] = {
         'label': 'Schwachstellenmanagement & Sicherheitsprüfung',
         'paragraph': '§30 Nr. 5',
-        'score': 100 if scan_count > 0 else 0,
-        'status': 'complete' if scan_count > 0 else 'open',
-        'action_url': '/nis2/monitoring/',
-        'action_label': 'Scan starten',
+        'score': nr5_score,
+        'status': 'complete' if nr5_score == 100 else ('partial' if nr5_score > 0 else 'open'),
+        'detail': f'{asset_count} Asset(s) im Inventar, {scan_count} Scan(s)',
+        'action_url': '/nis2/assets/' if asset_count == 0 else '/nis2/monitoring/',
+        'action_label': 'Asset-Inventar' if asset_count == 0 else 'Scan starten',
         'icon': 'bi-radar',
     }
 
@@ -125,10 +129,13 @@ def _calculate_compliance_score(user_id: int) -> dict:
         'icon': 'bi-graph-up',
     }
 
-    # ── Nr. 7: Schulungen & Sensibilisierung ─────────────────────────────
+    # ── Nr. 7: Schulungen & Sensibilisierung (inkl. §38 GF-Bestätigung) ────
     from .models import SecurityTraining, TrainingAcknowledgment
     from app.extensions import db
     total_trainings = SecurityTraining.query.filter_by(user_id=user_id).count()
+    gf_ack_count = SecurityTraining.query.filter_by(
+        user_id=user_id, gf_acknowledged=True
+    ).count()
     # Count distinct staff who confirmed at least one training
     confirmed_acks = (
         db.session.query(TrainingAcknowledgment.recipient_email)
@@ -138,16 +145,19 @@ def _calculate_compliance_score(user_id: int) -> dict:
         .distinct()
         .count()
     )
-    # Score: 30 per sent training (max 60) + 40 if any acks exist
-    nr7_score = min(60, total_trainings * 30) + (40 if confirmed_acks > 0 else 0)
+    # Score: 25 per sent training (max 50) + 25 for §38 GF-Bestätigung + 25 if staff acks exist
+    nr7_score = (min(50, total_trainings * 25)
+                 + (25 if gf_ack_count > 0 else 0)
+                 + (25 if confirmed_acks > 0 else 0))
     nr7_status = ('complete' if nr7_score >= 100
                   else ('partial' if nr7_score > 0 else 'open'))
+    par38_label = f'§38 GF-Best.: {gf_ack_count} Schulung(en)' if gf_ack_count > 0 else '§38 GF-Bestätigung ausstehend'
     measures['nr7'] = {
         'label': 'Schulungen & Cyber-Hygiene-Sensibilisierung',
-        'paragraph': '§30 Nr. 7',
+        'paragraph': '§30 Nr. 7 / §38',
         'score': nr7_score,
         'status': nr7_status,
-        'detail': f'{total_trainings} Schulung(en) erstellt, {confirmed_acks} Mitarbeiter bestätigt',
+        'detail': f'{total_trainings} Schulung(en), {confirmed_acks} Mitarbeiter bestätigt — {par38_label}',
         'action_url': '/nis2/training/',
         'action_label': 'Schulung erstellen',
         'icon': 'bi-mortarboard',
@@ -173,13 +183,15 @@ def _calculate_compliance_score(user_id: int) -> dict:
 
     # ── Nr. 9: Personelle Sicherheit / IAM / Asset Management ────────────
     has_iam = 'access_control' in isms_types
+    nr9_score = (50 if has_iam else 0) + (50 if asset_count > 0 else 0)
     measures['nr9'] = {
         'label': 'Zugriffskontrolle & Asset-Management',
         'paragraph': '§30 Nr. 9',
-        'score': 100 if has_iam else 0,
-        'status': 'complete' if has_iam else 'open',
-        'action_url': '/nis2/isms/',
-        'action_label': 'IAM-Konzept erstellen',
+        'score': nr9_score,
+        'status': 'complete' if nr9_score == 100 else ('partial' if nr9_score > 0 else 'open'),
+        'detail': f'IAM-Konzept: {"✓" if has_iam else "fehlt"} · Assets: {asset_count}',
+        'action_url': '/nis2/assets/' if asset_count == 0 else '/nis2/isms/',
+        'action_label': 'Asset-Inventar' if asset_count == 0 else 'IAM-Konzept erstellen',
         'icon': 'bi-person-lock',
     }
 

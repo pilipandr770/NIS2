@@ -327,6 +327,98 @@ def _check_dns(domain: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+def run_basic_checks(domain: str) -> Dict[str, Any]:
+    """
+    Adapter used by the continuous monitoring scanner.
+    Calls fetch_live_check and converts the result into the format the scanner expects:
+      { 'overall_score': float, 'checks': { name: { 'status', 'issues': [...] } } }
+    """
+    target = domain if domain.startswith(("http://", "https://")) else f"https://{domain}"
+    raw = fetch_live_check(target)
+
+    if "error" in raw:
+        return {"overall_score": 0.0, "checks": {}, "error": raw["error"]}
+
+    checks: Dict[str, Any] = {}
+    score = 100.0
+
+    # ── TLS ──────────────────────────────────────────────────────
+    tls = raw.get("tls", {})
+    tls_issues = []
+    if tls.get("valid") is False:
+        score -= 30
+        tls_issues.append({"severity": "critical", "message": "TLS-Zertifikat ungültig"})
+    days = tls.get("days_remaining")
+    if days is not None and days < 30:
+        score -= 20
+        tls_issues.append({"severity": "high", "message": f"Zertifikat läuft in {days} Tag(en) ab"})
+    checks["tls"] = {
+        "status": "PASSED" if not tls_issues else "FAILED",
+        "issues": tls_issues,
+    }
+
+    # ── HTTP security headers ─────────────────────────────────────
+    http = raw.get("http", {})
+    missing = http.get("missing_headers", [])
+    header_issues = []
+    header_weights = {
+        "content-security-policy": ("high", 10),
+        "strict-transport-security": ("high", 10),
+        "x-frame-options": ("medium", 5),
+        "x-content-type-options": ("medium", 5),
+        "referrer-policy": ("low", 3),
+        "permissions-policy": ("low", 3),
+        "cross-origin-opener-policy": ("low", 2),
+        "cross-origin-embedder-policy": ("low", 2),
+    }
+    for h in missing:
+        sev, penalty = header_weights.get(h, ("low", 2))
+        score -= penalty
+        header_issues.append({"severity": sev, "message": f"Fehlender Header: {h}"})
+    # CSP weak
+    if http.get("csp_strength") == "weak":
+        score -= 5
+        header_issues.append({"severity": "medium", "message": "CSP enthält unsafe-inline / unsafe-eval"})
+    checks["http_headers"] = {
+        "status": "PASSED" if not header_issues else ("FAILED" if any(i["severity"] in ("critical", "high") for i in header_issues) else "WARNING"),
+        "issues": header_issues,
+    }
+
+    # ── Cookies ───────────────────────────────────────────────────
+    cookies = raw.get("cookies", {})
+    cookie_issues = []
+    for msg in cookies.get("insecure_cookies", []):
+        score -= 5
+        cookie_issues.append({"severity": "medium", "message": msg})
+    checks["cookies"] = {
+        "status": "PASSED" if not cookie_issues else "WARNING",
+        "issues": cookie_issues,
+    }
+
+    # ── DNS ───────────────────────────────────────────────────────
+    dns = raw.get("dns", {})
+    dns_issues = []
+    if dns.get("spf") == "missing":
+        score -= 10
+        dns_issues.append({"severity": "high", "message": "SPF-Record fehlt (E-Mail-Spoofing-Risiko)"})
+    if dns.get("dmarc") == "missing":
+        score -= 10
+        dns_issues.append({"severity": "high", "message": "DMARC-Record fehlt"})
+    if not dns.get("dnssec"):
+        score -= 5
+        dns_issues.append({"severity": "low", "message": "DNSSEC nicht aktiviert"})
+    checks["dns"] = {
+        "status": "PASSED" if not dns_issues else ("FAILED" if any(i["severity"] == "high" for i in dns_issues) else "WARNING"),
+        "issues": dns_issues,
+    }
+
+    return {
+        "overall_score": max(0.0, min(100.0, round(score, 1))),
+        "checks": checks,
+        "raw": raw,
+    }
+
+
 def fetch_live_check(target: str) -> Dict[str, Any]:
     """
     Run all Python-native security checks against *target* (URL or domain).

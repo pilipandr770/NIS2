@@ -57,3 +57,18 @@ register_training_routes(nis2_bp)
 
 from .site_audit.routes import register_site_audit_routes
 register_site_audit_routes(nis2_bp)
+
+from .compliance_report.routes import register_compliance_report_routes
+register_compliance_report_routes(nis2_bp)
+
+from .assets.routes import register_asset_routes
+register_asset_routes(nis2_bp)
+
+from .risk_register.routes import register_risk_routes
+register_risk_routes(nis2_bp)
+
+from .dsgvo.routes import register_dsgvo_routes
+register_dsgvo_routes(nis2_bp)
+
+from .deadlines.routes import register_deadline_routes
+register_deadline_routes(nis2_bp)

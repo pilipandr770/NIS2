@@ -119,7 +119,7 @@ def register_bsi_routes(bp):
                 return redirect(url_for('nis2.bsi_export', reg_id=reg_id))
 
         return render_template(
-            f'nis2/bsi_registration/wizard_step{step}.html',
+            'nis2/bsi_registration/wizard_step.html',
             reg=reg,
             step=step,
             sectors=NIS2_SECTORS,
@@ -381,15 +381,15 @@ def _save_wizard_step(reg: BSIRegistration, step: int, form) -> str:
                     'phone': form.get('gf_phone', '').strip(),
                 },
                 'it_security': {
-                    'name': form.get('it_name', '').strip(),
-                    'email': form.get('it_email', '').strip(),
-                    'phone': form.get('it_phone', '').strip(),
+                    'name': form.get('ciso_name', '').strip(),
+                    'email': form.get('ciso_email', '').strip(),
+                    'phone': form.get('ciso_phone', '').strip(),
                 },
                 'meldestelle': {
-                    'name': form.get('ms_name', '').strip(),
-                    'email': form.get('ms_email', '').strip(),
-                    'phone': form.get('ms_phone', '').strip(),
-                    'available_24_7': form.get('ms_24h') in ('on', '1', 'true'),
+                    'name': form.get('meldestelle_name', '').strip(),
+                    'email': form.get('meldestelle_email', '').strip(),
+                    'phone': form.get('meldestelle_phone', '').strip(),
+                    'available_24_7': form.get('meldestelle_24h') in ('on', '1', 'true'),
                 },
             }
             reg.contacts_json = json.dumps(contacts, ensure_ascii=False)
@@ -399,10 +399,16 @@ def _save_wizard_step(reg: BSIRegistration, step: int, form) -> str:
             domains_raw = form.get('domains', '')
             cloud_raw = form.get('cloud_providers', '')
 
+            # cloud_providers can be a single-line comma-separated input or multi-line textarea
+            if '\n' in cloud_raw:
+                cloud_list = [c.strip() for c in cloud_raw.splitlines() if c.strip()]
+            else:
+                cloud_list = [c.strip() for c in cloud_raw.split(',') if c.strip()]
+
             technical = {
                 'ip_ranges': [r.strip() for r in ip_ranges_raw.splitlines() if r.strip()],
                 'domains': [d.strip() for d in domains_raw.splitlines() if d.strip()],
-                'cloud_providers': [c.strip() for c in cloud_raw.splitlines() if c.strip()],
+                'cloud_providers': cloud_list,
                 'it_services': form.get('it_services', '').strip(),
                 'employee_count_it': _safe_int(form.get('employee_count_it')),
             }
