@@ -54,11 +54,12 @@ def create_app(config_name: str = None) -> Flask:
     app.register_blueprint(nis2_bp, url_prefix='/nis2')
 
     # ── NIS2 monitoring scheduler ─────────────────────────────────────────
-    try:
-        from app.nis2.continuous_monitoring.scheduler import start_monitoring_scheduler
-        start_monitoring_scheduler(app)
-    except Exception as exc:
-        logger.warning('Monitoring scheduler not started: %s', exc)
+    if not app.config.get('DISABLE_NIS2_SCHEDULER', False):
+        try:
+            from app.nis2.continuous_monitoring.scheduler import init_nis2_monitoring_scheduler
+            app.nis2_scheduler = init_nis2_monitoring_scheduler(app)
+        except Exception as exc:
+            logger.warning('Monitoring scheduler not started: %s', exc)
 
     # ── Landing / root route ──────────────────────────────────────────────
     @app.route('/')

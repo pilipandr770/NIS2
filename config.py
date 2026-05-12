@@ -94,6 +94,7 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
+    DISABLE_NIS2_SCHEDULER = True
     SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True}
 
 

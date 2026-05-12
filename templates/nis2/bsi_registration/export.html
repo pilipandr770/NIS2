@@ -47,6 +47,16 @@
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-header"><strong>2. Ansprechpartner</strong></div>
         <div class="card-body">
+          {% if contacts is mapping %}
+          {% for role_key, c in contacts.items() %}
+          <div class="row g-2 mb-2 pb-2 border-bottom">
+            <div class="col-md-3"><small class="text-muted">Rolle</small><div>{{ role_key.replace('_', ' ')|title }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Name</small><div>{{ c.get('name', '—') if c is mapping else '—' }}</div></div>
+            <div class="col-md-3"><small class="text-muted">E-Mail</small><div>{{ c.get('email', '—') if c is mapping else '—' }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Telefon</small><div>{{ c.get('phone', '—') if c is mapping else '—' }}</div></div>
+          </div>
+          {% endfor %}
+          {% else %}
           {% for c in contacts %}
           <div class="row g-2 mb-2 pb-2 border-bottom">
             <div class="col-md-3"><small class="text-muted">Name</small><div>{{ c.get('name', '—') }}</div></div>
@@ -55,6 +65,7 @@
             <div class="col-md-3"><small class="text-muted">Telefon</small><div>{{ c.get('phone', '—') }}</div></div>
           </div>
           {% endfor %}
+          {% endif %}
         </div>
       </div>
       {% endif %}

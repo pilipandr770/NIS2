@@ -40,7 +40,6 @@ def init_nis2_monitoring_scheduler(app) -> BackgroundScheduler:
 def _run_due_scans(app) -> None:
     """Check all active targets and scan those whose next_scan_at has arrived."""
     with app.app_context():
-        from .models import MonitoringTarget  # local import to avoid circular
         try:
             from app.nis2.models import MonitoringTarget as MT
         except ImportError:
