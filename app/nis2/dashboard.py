@@ -20,7 +20,18 @@ def register_dashboard_routes(bp):
     @bp.route('/api/compliance-score')
     @login_required
     def compliance_score_api():
-        return jsonify(_calculate_compliance_score(current_user.id))
+        data = _calculate_compliance_score(current_user.id)
+        reg = data.get('bsi_registration')
+        if reg is not None:
+            data['bsi_registration'] = {
+                'id': reg.id,
+                'company_name': reg.company_name,
+                'entity_type': reg.entity_type,
+                'is_complete': reg.is_complete,
+                'wizard_step': reg.wizard_step,
+                'exported_at': reg.exported_at.isoformat() if reg.exported_at else None,
+            }
+        return jsonify(data)
 
 
 def _calculate_compliance_score(user_id: int) -> dict:

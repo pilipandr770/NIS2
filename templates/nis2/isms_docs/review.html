@@ -65,6 +65,9 @@
             <i class="bi bi-file-earmark"></i> Dokumente anzeigen
           </a>
         </div>
+        <div id="errorArea" style="display:none;" class="mt-3">
+          <div class="alert alert-danger" id="errorText"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -76,12 +79,16 @@ async function startGeneration() {
   const btn = document.getElementById('generateBtn');
   const progressArea = document.getElementById('progressArea');
   const doneArea = document.getElementById('doneArea');
-  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+  const errorArea = document.getElementById('errorArea');
+  const errorText = document.getElementById('errorText');
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+    || '{{ csrf_token() }}';
   const interviewId = {{ interview.id }};
 
   btn.disabled = true;
   progressArea.style.display = 'block';
   doneArea.style.display = 'none';
+  errorArea.style.display = 'none';
 
   // Step 1: get list of docs to generate
   let docTypes;
@@ -103,7 +110,9 @@ async function startGeneration() {
 
   if (docTypes.length === 0) {
     progressArea.style.display = 'none';
-    doneArea.style.display = 'block';
+    btn.disabled = false;
+    errorText.textContent = 'Keine Dokumenttypen ausgewählt.';
+    errorArea.style.display = 'block';
     return;
   }
 
@@ -123,7 +132,7 @@ async function startGeneration() {
       const r = await fetch(`/nis2/isms/interview/${interviewId}/generate-one`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-        body: JSON.stringify({doc_type: docType})
+        body: JSON.stringify({doc_type: docType, regenerate: true})
       });
 
       const el = document.getElementById('status_' + docType);
@@ -148,7 +157,10 @@ async function startGeneration() {
 
   progressArea.style.display = 'none';
   if (errors.length) {
-    alert('Fehler bei ' + errors.length + ' Dokument(en):\n' + errors.join('\n'));
+    btn.disabled = false;
+    errorText.textContent = 'Fehler bei ' + errors.length + ' Dokument(en): ' + errors.join(' | ');
+    errorArea.style.display = 'block';
+    return;
   }
   doneArea.style.display = 'block';
 }

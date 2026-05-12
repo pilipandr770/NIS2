@@ -7,6 +7,7 @@ based on a 4-phase structured interview.
 
 import json
 import logging
+import re
 from datetime import date, timedelta
 from typing import Optional
 
@@ -603,21 +604,32 @@ class ISMSDocumentGenerator:
         try:
             import anthropic
             client = anthropic.Anthropic()
+            company_name = context.get('company_name', 'Ihr Unternehmen')
+            today_str = date.today().strftime('%d.%m.%Y')
+            next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
             message = client.messages.create(
                 model=self.MODEL,
                 max_tokens=4096,
+                temperature=0.2,
                 messages=[
                     {
                         'role': 'user',
                         'content': (
                             'Du bist ein erfahrener ISMS-Berater und Compliance-Experte '
                             'mit Spezialisierung auf NIS2UmsuCG und BSI-Standards.\n\n'
+                            'Verbindliche Qualitätsregeln (ohne Ausnahmen):\n'
+                            f'- Verwende den Unternehmensnamen exakt: {company_name}\n'
+                            f'- Verwende konkrete Daten: Erstellt am {today_str}, Gültig ab {today_str}, nächste Überprüfung {next_review_str}\n'
+                            '- Keine Platzhalter oder Dummy-Werte. Verboten sind insbesondere: [Datum], [Platzhalter], Ihr Unternehmen, Mustermann, Beispiel GmbH.\n'
+                            '- Wenn Informationen fehlen, formuliere klare und umsetzbare Annahmen im Text (ohne eckige Klammern).\n'
+                            '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
                             + prompt
                         ),
                     }
                 ],
             )
             content = message.content[0].text if message.content else ''
+            content = _sanitize_generated_content(content, context)
             return content, None
 
         except Exception as exc:
@@ -628,7 +640,19 @@ class ISMSDocumentGenerator:
 def _flatten_interview_data(interview_data: dict) -> dict:
     """Flatten nested interview data into a single dict for prompt formatting."""
     flat = {}
-    for phase_data in interview_data.values() if isinstance(interview_data, dict) else [interview_data]:
+    sources = []
+    if isinstance(interview_data, dict):
+        # Support both shapes:
+        # 1) nested phase dict: {1: {...}, 2: {...}}
+        # 2) flat answer dict: {'company_name': '...'}
+        if any(isinstance(v, dict) for v in interview_data.values()):
+            sources = [v for v in interview_data.values() if isinstance(v, dict)]
+        else:
+            sources = [interview_data]
+    else:
+        sources = [interview_data]
+
+    for phase_data in sources:
         if isinstance(phase_data, dict):
             for k, v in phase_data.items():
                 if isinstance(v, list):
@@ -637,7 +661,6 @@ def _flatten_interview_data(interview_data: dict) -> dict:
                     flat[k] = str(v)
                 else:
                     flat[k] = 'nicht angegeben'
-        flat.update(phase_data if isinstance(phase_data, dict) else {})
     # Ensure required keys have defaults
     defaults = {
         'company_name': 'Ihr Unternehmen',
@@ -665,6 +688,34 @@ class _SafeDict(dict):
     """dict subclass that returns '{key}' for missing keys instead of raising KeyError."""
     def __missing__(self, key):
         return f'{{{key}}}'
+
+
+def _sanitize_generated_content(content: str, context: dict) -> str:
+    """Replace common placeholder artifacts with concrete values."""
+    if not content:
+        return content
+
+    company_name = context.get('company_name') or 'Ihr Unternehmen'
+    today_str = date.today().strftime('%d.%m.%Y')
+    next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
+
+    replacements = {
+        'Ihr Unternehmen': company_name,
+        'Mustermann GmbH': company_name,
+        'Beispiel GmbH': company_name,
+        '[Datum]': today_str,
+        '[Datum + 12 Monate]': next_review_str,
+        '[Platzhalter]': 'unternehmensspezifische Angabe',
+    }
+
+    for old, new in replacements.items():
+        content = content.replace(old, new)
+
+    # Normalize remaining simple [Datum ...]-style artifacts if model still emits variants.
+    content = re.sub(r'\[\s*Datum\s*\+\s*12\s*Monate\s*\]', next_review_str, content, flags=re.IGNORECASE)
+    content = re.sub(r'\[\s*Datum\s*\]', today_str, content, flags=re.IGNORECASE)
+
+    return content
 
 
 def get_phase_definitions():
