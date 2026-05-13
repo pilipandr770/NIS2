@@ -13,14 +13,6 @@
   <h1 class="h3 mb-1">Zwei-Faktor-Authentifizierung aktivieren</h1>
   <p class="text-muted small mb-4">§30 Nr. 10 BSIG — MFA & sichere Kommunikation</p>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible">
-        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
-
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
       <h5 class="card-title">Schritt 1 — Authenticator-App scannen</h5>

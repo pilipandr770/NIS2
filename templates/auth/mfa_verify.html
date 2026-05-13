@@ -13,14 +13,6 @@
         </p>
       </div>
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for cat, msg in messages %}
-          <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible">
-            {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-        {% endfor %}
-      {% endwith %}
-
       <form method="POST" autocomplete="off">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-3">

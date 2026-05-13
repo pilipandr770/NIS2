@@ -11,14 +11,6 @@
     </ol>
   </nav>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show">
-        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
-
   <!-- Header -->
   <div class="row g-3 mb-4">
     <div class="col-md-8">

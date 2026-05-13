@@ -11,14 +11,6 @@
     </ol>
   </nav>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show">
-        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
-
   <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
     <div>
       <h1 class="h3 mb-0">Verarbeitungsverzeichnis (VVT)</h1>

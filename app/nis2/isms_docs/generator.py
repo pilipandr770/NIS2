@@ -602,8 +602,12 @@ class ISMSDocumentGenerator:
             prompt = prompt_template  # use template as-is
 
         try:
+            import os
             import anthropic
-            client = anthropic.Anthropic()
+            api_key = os.environ.get('ANTHROPIC_API_KEY')
+            if not api_key:
+                return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
+            client = anthropic.Anthropic(api_key=api_key)
             company_name = context.get('company_name', 'Ihr Unternehmen')
             today_str = date.today().strftime('%d.%m.%Y')
             next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
@@ -633,8 +637,9 @@ class ISMSDocumentGenerator:
             return content, None
 
         except Exception as exc:
-            logger.error('Claude API error generating %s: %s', doc_type, exc)
-            return '', str(exc)
+            logger.error('Claude API error generating %s: %s', doc_type, exc, exc_info=True)
+            err_type = type(exc).__name__
+            return '', f'KI-Generierung fehlgeschlagen ({err_type}): {exc}'
 
 
 def _flatten_interview_data(interview_data: dict) -> dict:
