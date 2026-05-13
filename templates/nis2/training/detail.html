@@ -237,6 +237,7 @@
                 </td>
                 <td>
                   {% if not ack.acknowledged %}
+                  <div class="d-flex gap-1">
                   <form method="POST"
                         action="{{ url_for('nis2.training_resend', training_id=training.id, ack_id=ack.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -244,6 +245,14 @@
                       <i class="bi bi-bell"></i>
                     </button>
                   </form>
+                  <form method="POST"
+                        action="{{ url_for('nis2.training_admin_confirm', training_id=training.id, ack_id=ack.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-outline-success" title="Manuell als bestätigt markieren (Präsenz-Schulung)">
+                      <i class="bi bi-person-check"></i>
+                    </button>
+                  </form>
+                  </div>
                   {% endif %}
                 </td>
               </tr>

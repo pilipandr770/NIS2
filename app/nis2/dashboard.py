@@ -88,9 +88,14 @@ def _calculate_compliance_score(user_id: int) -> dict:
 
     # ── Nr. 4: Lieferkettensicherheit ────────────────────────────────────
     supplier_count = Supplier.query.filter_by(user_id=user_id, is_active=True).count()
+    from sqlalchemy import or_
     assessed_count = Supplier.query.filter(
         Supplier.user_id == user_id,
-        Supplier.last_verification_at.isnot(None),
+        Supplier.is_active == True,
+        or_(
+            Supplier.last_verification_at.isnot(None),
+            Supplier.last_assessment_at.isnot(None),
+        ),
     ).count()
     sc_score = 0
     if supplier_count > 0:

@@ -324,6 +324,29 @@ def register_training_routes(bp):
             flash('E-Mail-Versand fehlgeschlagen — SMTP prüfen.', 'danger')
         return redirect(url_for('nis2.training_detail', training_id=training_id))
 
+    # ── Admin-Override: mark ack as confirmed (for in-person training) ──
+    @bp.route('/training/<int:training_id>/ack/<int:ack_id>/admin-confirm', methods=['POST'])
+    @login_required
+    @require_plan("professional")
+    def training_admin_confirm(training_id, ack_id):
+        training = SecurityTraining.query.filter_by(
+            id=training_id, user_id=current_user.id
+        ).first_or_404()
+        ack = TrainingAcknowledgment.query.filter_by(
+            id=ack_id, training_id=training_id
+        ).first_or_404()
+
+        if ack.acknowledged:
+            flash('Bereits bestätigt.', 'info')
+            return redirect(url_for('nis2.training_detail', training_id=training_id))
+
+        ack.acknowledged = True
+        ack.acknowledged_at = datetime.now(UTC)
+        ack.confirmed_name = f'Admin-Bestätigung ({current_user.email})'
+        db.session.commit()
+        flash(f'Bestätigung für {ack.recipient_name} manuell gesetzt.', 'success')
+        return redirect(url_for('nis2.training_detail', training_id=training_id))
+
     # ── Acknowledgment page (public — no login required) ──────────
     @bp.route('/training/ack/<token>', methods=['GET', 'POST'])
     def training_ack(token):
