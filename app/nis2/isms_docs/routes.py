@@ -177,7 +177,7 @@ def register_isms_routes(bp):
             import time
             while not result_holder['done']:
                 yield b': keepalive\n\n'
-                time.sleep(10)
+                time.sleep(5)
 
             if result_holder['error']:
                 yield f'data: {json.dumps({"doc_type": doc_type_key, "error": result_holder["error"]})}\n\n'.encode()
