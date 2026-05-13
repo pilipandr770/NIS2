@@ -72,7 +72,7 @@ def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None
         if not api_key:
             return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
         client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
+        with client.messages.stream(
             model=MODEL,
             max_tokens=2048,
             messages=[
@@ -85,8 +85,8 @@ def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None
                     ),
                 }
             ],
-        )
-        content = message.content[0].text if message.content else ''
+        ) as stream:
+            content = stream.get_final_text()
         return content, None
     except Exception as exc:
         logger.error('Claude API error generating BSI draft %s: %s', stage, exc, exc_info=True)

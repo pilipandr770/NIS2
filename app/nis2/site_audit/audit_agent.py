@@ -165,13 +165,13 @@ def _call_claude(user_message: str) -> List[Dict[str, Any]]:
 
     client = anthropic.Anthropic(api_key=api_key)
     try:
-        resp = client.messages.create(
+        with client.messages.stream(
             model=CLAUDE_MODEL,
             max_tokens=4096,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
-        )
-        text = resp.content[0].text.strip()
+        ) as stream:
+            text = stream.get_final_text().strip()
         # Strip markdown code fences if present
         if text.startswith("```"):
             text = text.split("```")[1]

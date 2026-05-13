@@ -611,28 +611,24 @@ class ISMSDocumentGenerator:
             company_name = context.get('company_name', 'Ihr Unternehmen')
             today_str = date.today().strftime('%d.%m.%Y')
             next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
-            message = client.messages.create(
+            user_message = (
+                'Du bist ein erfahrener ISMS-Berater und Compliance-Experte '
+                'mit Spezialisierung auf NIS2UmsuCG und BSI-Standards.\n\n'
+                'Verbindliche Qualitätsregeln (ohne Ausnahmen):\n'
+                f'- Verwende den Unternehmensnamen exakt: {company_name}\n'
+                f'- Verwende konkrete Daten: Erstellt am {today_str}, Gültig ab {today_str}, nächste Überprüfung {next_review_str}\n'
+                '- Keine Platzhalter oder Dummy-Werte. Verboten sind insbesondere: [Datum], [Platzhalter], Ihr Unternehmen, Mustermann, Beispiel GmbH.\n'
+                '- Wenn Informationen fehlen, formuliere klare und umsetzbare Annahmen im Text (ohne eckige Klammern).\n'
+                '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
+                + prompt
+            )
+            with client.messages.stream(
                 model=self.MODEL,
                 max_tokens=4096,
                 temperature=0.2,
-                messages=[
-                    {
-                        'role': 'user',
-                        'content': (
-                            'Du bist ein erfahrener ISMS-Berater und Compliance-Experte '
-                            'mit Spezialisierung auf NIS2UmsuCG und BSI-Standards.\n\n'
-                            'Verbindliche Qualitätsregeln (ohne Ausnahmen):\n'
-                            f'- Verwende den Unternehmensnamen exakt: {company_name}\n'
-                            f'- Verwende konkrete Daten: Erstellt am {today_str}, Gültig ab {today_str}, nächste Überprüfung {next_review_str}\n'
-                            '- Keine Platzhalter oder Dummy-Werte. Verboten sind insbesondere: [Datum], [Platzhalter], Ihr Unternehmen, Mustermann, Beispiel GmbH.\n'
-                            '- Wenn Informationen fehlen, formuliere klare und umsetzbare Annahmen im Text (ohne eckige Klammern).\n'
-                            '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
-                            + prompt
-                        ),
-                    }
-                ],
-            )
-            content = message.content[0].text if message.content else ''
+                messages=[{'role': 'user', 'content': user_message}],
+            ) as stream:
+                content = stream.get_final_text()
             content = _sanitize_generated_content(content, context)
             return content, None
 
