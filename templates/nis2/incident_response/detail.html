@@ -287,7 +287,7 @@ function generateDraft(btn) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+      'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}'
     },
     body: JSON.stringify({stage: stage})
   })

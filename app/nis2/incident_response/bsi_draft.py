@@ -66,8 +66,12 @@ def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None
         return '', f'Unbekannte Meldungsstufe: {stage}'
 
     try:
+        import os
         import anthropic
-        client = anthropic.Anthropic()
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
+        client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
             max_tokens=2048,
@@ -85,8 +89,9 @@ def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None
         content = message.content[0].text if message.content else ''
         return content, None
     except Exception as exc:
-        logger.error('Claude API error generating BSI draft %s: %s', stage, exc)
-        return '', str(exc)
+        logger.error('Claude API error generating BSI draft %s: %s', stage, exc, exc_info=True)
+        err_type = type(exc).__name__
+        return '', f'KI-Generierung fehlgeschlagen ({err_type}): {exc}'
 
 
 # ─────────────────────────────────────────────────────────────────

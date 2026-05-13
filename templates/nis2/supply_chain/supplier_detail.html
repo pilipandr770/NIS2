@@ -76,8 +76,10 @@
       <div class="card border-0 shadow-sm">
         <div class="card-header d-flex justify-content-between">
           <strong>Risikobewertungen</strong>
-          <a href="{{ url_for('nis2.supply_chain_assess', supplier_id=supplier.id) }}"
-             class="btn btn-sm btn-outline-primary">+ Neues Assessment</a>
+          <button type="button" class="btn btn-sm btn-outline-primary"
+                  data-bs-toggle="modal" data-bs-target="#assessModal">
+            + Neues Assessment
+          </button>
         </div>
         {% if assessments %}
         <div class="table-responsive">
@@ -136,6 +138,38 @@
           <div class="card-body p-3 small" id="verifyBody"></div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Assessment modal -->
+<div class="modal fade" id="assessModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('nis2.supply_chain_assess', supplier_id=supplier.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Neues Risiko-Assessment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Risiko-Score (0–100)</label>
+            <input type="number" name="score" class="form-control" min="0" max="100"
+                   value="50" required>
+            <div class="form-text">0 = kein Risiko, 100 = kritisches Risiko</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Notizen</label>
+            <textarea name="notes" class="form-control" rows="3"
+                      placeholder="Begründung, Prüfschritte, Befunde…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Bewertung speichern</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

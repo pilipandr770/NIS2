@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 
 from flask import (
     abort,
+    flash,
     jsonify,
     redirect,
     render_template,
@@ -355,7 +356,8 @@ def register_site_audit_routes(bp) -> None:
 
         target = (request.form.get("target") or "").strip()
         if not target:
-            return jsonify({"error": "Ziel-URL ist erforderlich."}), 400
+            flash('Ziel-URL ist erforderlich.', 'danger')
+            return redirect(url_for('nis2.site_audit_new'))
 
         # Basic normalisation
         if not target.startswith(("http://", "https://")):
@@ -364,7 +366,8 @@ def register_site_audit_routes(bp) -> None:
 
         # SSRF check
         if not is_public_target(target):
-            return jsonify({"error": "Ungültiges oder internes Ziel."}), 400
+            flash('Ungültiges oder internes Ziel. Bitte geben Sie eine öffentliche URL ein.', 'danger')
+            return redirect(url_for('nis2.site_audit_new', target=target))
 
         job = NIS2AuditJob(
             user_id=current_user.id,

@@ -316,8 +316,8 @@ def mfa_setup():
 
         flash('Ungültiger Code — bitte erneut scannen und versuchen.', 'danger')
 
-    # Generate a fresh secret on GET (overwrites any unconfirmed one)
-    if not current_user.totp_enabled:
+    # Generate a fresh secret only on GET (not after a failed POST — would invalidate already-scanned QR)
+    if request.method == 'GET' and not current_user.totp_enabled:
         current_user.generate_totp_secret()
         db.session.commit()
 
