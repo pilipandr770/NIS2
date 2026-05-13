@@ -1374,3 +1374,31 @@ class ProcessingActivity(db.Model):
 
     def __repr__(self):
         return f'<ProcessingActivity {self.name[:50]}>'
+
+
+# ─────────────────────────────────────────────────────────────────
+# API USAGE LOG  (token tracking per user)
+# ─────────────────────────────────────────────────────────────────
+
+class APIUsageLog(db.Model):
+    """Records every Claude API call: model, tokens in/out, endpoint."""
+
+    __tablename__ = 'nis2_api_usage_logs'
+    __table_args__ = {'schema': SCHEMA} if SCHEMA else {}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(f'{_sp}users.id', ondelete='SET NULL'),
+                        nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    model = db.Column(db.String(60), nullable=False)
+    endpoint = db.Column(db.String(60), nullable=False)   # 'isms', 'bsi_draft', 'site_audit'
+    input_tokens = db.Column(db.Integer, default=0)
+    output_tokens = db.Column(db.Integer, default=0)
+
+    @property
+    def total_tokens(self):
+        return (self.input_tokens or 0) + (self.output_tokens or 0)
+
+    def __repr__(self):
+        return (f'<APIUsageLog user={self.user_id} model={self.model} '
+                f'in={self.input_tokens} out={self.output_tokens}>')

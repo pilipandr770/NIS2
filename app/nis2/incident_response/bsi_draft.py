@@ -52,7 +52,7 @@ STAGE_META = {
     },
 }
 
-MODEL = 'claude-sonnet-4-6'
+MODEL = 'claude-haiku-4-5-20251001'
 
 
 def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None]:
@@ -87,6 +87,8 @@ def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None
             ],
         ) as stream:
             content = stream.get_final_text()
+            usage = stream.get_final_message().usage
+        _log_usage(MODEL, 'bsi_draft', usage.input_tokens, usage.output_tokens)
         return content, None
     except Exception as exc:
         logger.error('Claude API error generating BSI draft %s: %s', stage, exc, exc_info=True)
@@ -241,3 +243,22 @@ Struktur (gemäß DSGVO Art. 33 Abs. 3):
 Adressat: {d.get('supervisory_authority', 'Zuständige Datenschutz-Aufsichtsbehörde (je nach Bundesland)')}
 Format: Markdown, formelles Schreiben, juristisch korrekt.
 """
+
+
+def _log_usage(model: str, endpoint: str, input_tokens: int, output_tokens: int):
+    try:
+        from flask_login import current_user
+        from app.nis2.models import APIUsageLog
+        from app.extensions import db
+        user_id = current_user.id if current_user and current_user.is_authenticated else None
+        log = APIUsageLog(
+            user_id=user_id,
+            model=model,
+            endpoint=endpoint,
+            input_tokens=input_tokens or 0,
+            output_tokens=output_tokens or 0,
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as exc:
+        logger.warning('APIUsageLog write failed: %s', exc)

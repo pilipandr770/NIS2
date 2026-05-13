@@ -629,6 +629,8 @@ class ISMSDocumentGenerator:
                 messages=[{'role': 'user', 'content': user_message}],
             ) as stream:
                 content = stream.get_final_text()
+                usage = stream.get_final_message().usage
+            _log_usage(self.MODEL, 'isms_doc', usage.input_tokens, usage.output_tokens)
             content = _sanitize_generated_content(content, context)
             return content, None
 
@@ -722,3 +724,22 @@ def _sanitize_generated_content(content: str, context: dict) -> str:
 def get_phase_definitions():
     """Return phase definitions for use in templates."""
     return PHASES
+
+
+def _log_usage(model: str, endpoint: str, input_tokens: int, output_tokens: int):
+    try:
+        from flask_login import current_user
+        from app.nis2.models import APIUsageLog
+        from app.extensions import db
+        user_id = current_user.id if current_user and current_user.is_authenticated else None
+        log = APIUsageLog(
+            user_id=user_id,
+            model=model,
+            endpoint=endpoint,
+            input_tokens=input_tokens or 0,
+            output_tokens=output_tokens or 0,
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as exc:
+        logger.warning('APIUsageLog write failed: %s', exc)

@@ -31,7 +31,7 @@ from .live_check import fetch_live_check
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-5")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
 # ---------------------------------------------------------------------------
 # Severity helpers
@@ -172,6 +172,8 @@ def _call_claude(user_message: str) -> List[Dict[str, Any]]:
             messages=[{"role": "user", "content": user_message}],
         ) as stream:
             text = stream.get_final_text().strip()
+            usage = stream.get_final_message().usage
+        _log_usage(CLAUDE_MODEL, 'site_audit', usage.input_tokens, usage.output_tokens)
         # Strip markdown code fences if present
         if text.startswith("```"):
             text = text.split("```")[1]
@@ -184,6 +186,25 @@ def _call_claude(user_message: str) -> List[Dict[str, Any]]:
     except Exception:
         logger.exception("Claude API call failed")
         return []
+
+
+def _log_usage(model: str, endpoint: str, input_tokens: int, output_tokens: int):
+    try:
+        from flask_login import current_user
+        from app.nis2.models import APIUsageLog
+        from app.extensions import db
+        user_id = current_user.id if current_user and current_user.is_authenticated else None
+        log = APIUsageLog(
+            user_id=user_id,
+            model=model,
+            endpoint=endpoint,
+            input_tokens=input_tokens or 0,
+            output_tokens=output_tokens or 0,
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as exc:
+        logger.warning('APIUsageLog write failed: %s', exc)
 
 
 # ---------------------------------------------------------------------------

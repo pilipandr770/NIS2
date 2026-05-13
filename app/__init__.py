@@ -56,6 +56,9 @@ def create_app(config_name: str = None) -> Flask:
     from legal.routes import legal_bp
     app.register_blueprint(legal_bp, url_prefix='/legal')
 
+    from app.admin import admin_bp
+    app.register_blueprint(admin_bp, url_prefix='/superadmin')
+
     # ── NIS2 monitoring scheduler ─────────────────────────────────────────
     if not app.config.get('DISABLE_NIS2_SCHEDULER', False):
         try:
@@ -76,6 +79,37 @@ def create_app(config_name: str = None) -> Flask:
             'now': datetime.now(UTC),
             'app_name': 'NIS2 Compliance Platform',
         }
+
+    # ── CLI commands ──────────────────────────────────────────────────────
+    import click
+
+    @app.cli.command('create-admin')
+    @click.option('--email', default='pylypchukandrii770@gmail.com')
+    @click.option('--password', default='Dnepr75ok10$$')
+    @click.option('--plan', default='enterprise')
+    def create_admin(email, password, plan):
+        """Create or promote a user to super-admin."""
+        with app.app_context():
+            user = User.query.filter_by(email=email).first()
+            if user:
+                user.is_admin = True
+                user.subscription_plan = plan
+                user.set_password(password)
+                db.session.commit()
+                click.echo(f'Updated existing user {email} → admin=True, plan={plan}')
+            else:
+                user = User(
+                    email=email,
+                    first_name='Andrii',
+                    last_name='Admin',
+                    subscription_plan=plan,
+                    is_admin=True,
+                    is_active=True,
+                )
+                user.set_password(password)
+                db.session.add(user)
+                db.session.commit()
+                click.echo(f'Created admin user {email} (plan={plan})')
 
     # ── Error pages ───────────────────────────────────────────────────────
     @app.errorhandler(404)
