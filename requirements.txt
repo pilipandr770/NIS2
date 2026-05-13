@@ -10,7 +10,7 @@ Flask-WTF==1.2.1
 WTForms==3.1.2
 
 # ── Database ──────────────────────────────────────────────────────
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 SQLAlchemy==2.0.36
 
 # ── AI — ISMS document & BSI draft generation ─────────────────────
