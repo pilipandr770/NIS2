@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.extensions import db
 from app.models import User
@@ -139,8 +139,8 @@ def test_full_user_cycle_to_100_percent_compliance(flask_app, client):
             scan_frequency="monthly",
             last_score=90.0,
             previous_score=85.0,
-            last_scan_at=datetime.utcnow(),
-            next_scan_at=datetime.utcnow() + timedelta(days=30),
+            last_scan_at=datetime.now(UTC),
+            next_scan_at=datetime.now(UTC) + timedelta(days=30),
         )
         db.session.add(target)
         db.session.flush()
@@ -157,7 +157,7 @@ def test_full_user_cycle_to_100_percent_compliance(flask_app, client):
                     medium_count=0,
                     low_count=0,
                     triggered_by="manual",
-                    scanned_at=datetime(datetime.utcnow().year, 1, 5 + i),
+                    scanned_at=datetime(datetime.now(UTC).year, 1, 5 + i),
                     results_json="{}",
                     diff_json="{}",
                 )
@@ -178,7 +178,7 @@ def test_full_user_cycle_to_100_percent_compliance(flask_app, client):
                 user_id=user.id,
                 company_name="Supplier One",
                 is_active=True,
-                last_verification_at=datetime.utcnow(),
+                last_verification_at=datetime.now(UTC),
             )
         )
 
@@ -189,7 +189,7 @@ def test_full_user_cycle_to_100_percent_compliance(flask_app, client):
             content_md="content",
             status="sent",
             gf_acknowledged=True,
-            gf_acknowledged_at=datetime.utcnow(),
+            gf_acknowledged_at=datetime.now(UTC),
         )
         training2 = SecurityTraining(
             user_id=user.id,
@@ -210,7 +210,7 @@ def test_full_user_cycle_to_100_percent_compliance(flask_app, client):
                 recipient_email="employee@example.com",
                 token="ack-token-1",
                 acknowledged=True,
-                acknowledged_at=datetime.utcnow(),
+                acknowledged_at=datetime.now(UTC),
             )
         )
 

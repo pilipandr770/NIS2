@@ -6,7 +6,7 @@ import io
 import base64
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from flask import (
     Blueprint, render_template, redirect, url_for,
@@ -62,7 +62,7 @@ def register():
             first_name=first_name,
             last_name=last_name,
             subscription_plan='trial',
-            trial_ends_at=datetime.utcnow() + timedelta(days=trial_days),
+            trial_ends_at=datetime.now(UTC) + timedelta(days=trial_days),
         )
         user.set_password(password)
         user.generate_confirmation_token()
@@ -117,7 +117,7 @@ def login():
             session['mfa_next'] = next_page if next_page.startswith('/') else ''
             return redirect(url_for('auth.mfa_verify'))
 
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(UTC)
         db.session.commit()
         login_user(user, remember=remember)
 
@@ -286,7 +286,7 @@ def mfa_verify():
             remember = session.pop('mfa_remember', False)
             next_page = session.pop('mfa_next', '')
             session.pop('mfa_user_id', None)
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now(UTC)
             db.session.commit()
             login_user(user, remember=remember)
             if used_backup:

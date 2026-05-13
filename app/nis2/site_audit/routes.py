@@ -16,7 +16,7 @@ Routes:
 from __future__ import annotations
 
 import threading
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import (
     abort,
@@ -178,7 +178,7 @@ def _run_audit_in_thread(app, job_id: int, target: str) -> None:
                 )
                 job.report_html = report_html
                 job.status = "done"
-                job.completed_at = datetime.utcnow()
+                job.completed_at = datetime.now(UTC)
                 db.session.commit()
                 log_fn("INFO", "✅ Pentest-Bericht gespeichert")
 
@@ -232,7 +232,7 @@ def _run_audit_in_thread(app, job_id: int, target: str) -> None:
                         try:
                             done_at = datetime.fromisoformat(t["done_at"])
                         except (ValueError, TypeError):
-                            done_at = datetime.utcnow()
+                            done_at = datetime.now(UTC)
 
                     task = NIS2AuditTask(
                         job_id=job_id,
@@ -303,7 +303,7 @@ def _run_audit_in_thread(app, job_id: int, target: str) -> None:
 
                 job.report_html = report_html
                 job.status = "done"
-                job.completed_at = datetime.utcnow()
+                job.completed_at = datetime.now(UTC)
                 db.session.commit()
                 log_fn("INFO", "✅ Audit abgeschlossen — Bericht gespeichert")
 
@@ -436,7 +436,7 @@ def register_site_audit_routes(bp) -> None:
         retest_job_id = (request.form.get("retest_job_id") or "").strip()
 
         task.done = done
-        task.done_at = datetime.utcnow() if done else None
+        task.done_at = datetime.now(UTC) if done else None
 
         if done and retest_job_id:
             tag = f"Retested in Audit #{retest_job_id}"

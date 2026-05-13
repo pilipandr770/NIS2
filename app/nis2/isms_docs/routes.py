@@ -6,7 +6,7 @@ ISMS Docs — Routes
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import (abort, current_app, flash, jsonify, make_response, redirect,
                    render_template, request, send_file, url_for)
@@ -68,7 +68,7 @@ def register_isms_routes(bp):
             answers = _collect_phase_answers(request.form, phase_def['questions'])
             interview.set_phase_data(phase, answers)
             interview.current_phase = max(interview.current_phase, phase)
-            interview.updated_at = datetime.utcnow()
+            interview.updated_at = datetime.now(UTC)
             db.session.commit()
 
             next_phase = phase + 1
@@ -170,7 +170,7 @@ def register_isms_routes(bp):
             )
             db.session.add(doc)
 
-        interview.completed_at = datetime.utcnow()
+        interview.completed_at = datetime.now(UTC)
         db.session.commit()
         return jsonify({'doc_type': doc_type_key, 'id': doc.id, 'cached': False})
 
@@ -208,7 +208,7 @@ def register_isms_routes(bp):
             abort(403)
 
         import io
-        filename = f'{doc.doc_type}_{datetime.utcnow().strftime("%Y%m%d")}.md'
+        filename = f'{doc.doc_type}_{datetime.now(UTC).strftime("%Y%m%d")}.md'
         buf = io.BytesIO(doc.content.encode('utf-8'))
         buf.seek(0)
         return send_file(
@@ -228,7 +228,7 @@ def register_isms_routes(bp):
             abort(403)
         html = render_template('nis2/isms_docs/document_export.html',
                                doc=doc, user=current_user)
-        filename = f'{doc.doc_type}_{datetime.utcnow().strftime("%Y%m%d")}.html'
+        filename = f'{doc.doc_type}_{datetime.now(UTC).strftime("%Y%m%d")}.html'
         response = make_response(html)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'

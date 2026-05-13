@@ -6,7 +6,7 @@ Generates a comprehensive HTML compliance report covering all §30 measures,
 Serves as the evidence package for BSI audits and internal governance reviews.
 """
 
-from datetime import datetime, date
+from datetime import UTC, datetime, date
 
 from flask import render_template, make_response, request
 from flask_login import current_user, login_required
@@ -39,7 +39,7 @@ def register_compliance_report_routes(bp):
             resp.headers['Content-Type'] = 'text/html; charset=utf-8'
             resp.headers['Content-Disposition'] = (
                 f'attachment; filename="NIS2-Compliance-Report-'
-                f'{datetime.utcnow().strftime("%Y%m%d")}.html"'
+                f'{datetime.now(UTC).strftime("%Y%m%d")}.html"'
             )
             return resp
         return render_template('nis2/compliance_report/index.html',
@@ -52,7 +52,7 @@ def register_compliance_report_routes(bp):
 
 def _collect_report_data(user_id: int) -> dict:
     score_data = _calculate_compliance_score(user_id)
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     today = date.today()
 
     # ── BSI Registration (§33) ────────────────────────────────────

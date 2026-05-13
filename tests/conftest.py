@@ -1,3 +1,9 @@
+import os
+
+# Must be set before any app import so models use no schema (SQLite-compatible).
+# load_dotenv() uses override=False by default, so this wins over .env values.
+os.environ['DB_SCHEMA'] = ''
+
 import pytest
 
 from app import create_app

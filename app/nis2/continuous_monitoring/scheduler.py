@@ -6,7 +6,7 @@ Pattern mirrors crm/monitoring_scheduler.py.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -45,7 +45,7 @@ def _run_due_scans(app) -> None:
         except ImportError:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         due_targets = MT.query.filter(
             MT.is_active == True,
             (MT.next_scan_at <= now) | (MT.next_scan_at == None),

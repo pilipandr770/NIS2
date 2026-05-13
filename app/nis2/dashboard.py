@@ -43,7 +43,7 @@ def _calculate_compliance_score(user_id: int) -> dict:
         ISMSDocument, MonitoringScan, MonitoringTarget,
         Incident, Supplier, BSIRegistration,
     )
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     measures = {}
 
@@ -128,7 +128,7 @@ def _calculate_compliance_score(user_id: int) -> dict:
     # ── Nr. 6: Wirksamkeitsbewertung ─────────────────────────────────────
     recent_scans = MonitoringScan.query.join(MonitoringTarget).filter(
         MonitoringTarget.user_id == user_id,
-        MonitoringScan.scanned_at >= datetime(datetime.utcnow().year, 1, 1),
+        MonitoringScan.scanned_at >= datetime(datetime.now(UTC).year, 1, 1),
     ).count()
     measures['nr6'] = {
         'label': 'Bewertung der Wirksamkeit der Maßnahmen',

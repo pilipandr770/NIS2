@@ -9,7 +9,7 @@ Uses the built-in live_check scanner (no external pentesting module needed).
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.extensions import db
 from ..models import MonitoringTarget, MonitoringScan
@@ -34,7 +34,7 @@ def run_scan_for_target(target: MonitoringTarget,
             scan_type='full',
             triggered_by=triggered_by,
             error_message=str(exc),
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(UTC),
         )
         db.session.add(scan)
         db.session.commit()
@@ -72,13 +72,13 @@ def run_scan_for_target(target: MonitoringTarget,
         medium_count=medium,
         low_count=low,
         triggered_by=triggered_by,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(UTC),
     )
     db.session.add(scan)
 
     target.previous_score = target.last_score
     target.last_score = score
-    target.last_scan_at = datetime.utcnow()
+    target.last_scan_at = datetime.now(UTC)
     target.next_scan_at = _compute_next_scan(target)
 
     db.session.commit()
@@ -99,7 +99,7 @@ def _compute_next_scan(target: MonitoringTarget) -> datetime:
         'monthly': timedelta(days=30),
         'quarterly': timedelta(days=90),
     }
-    return datetime.utcnow() + freq_map.get(target.scan_frequency, timedelta(days=30))
+    return datetime.now(UTC) + freq_map.get(target.scan_frequency, timedelta(days=30))
 
 
 def _build_diff(target: MonitoringTarget, new_results: dict) -> dict:

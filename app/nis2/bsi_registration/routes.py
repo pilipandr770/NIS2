@@ -9,7 +9,7 @@ Wizard for §33 BSIG registration via BSI MUK-Portal.
 
 import json
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import render_template, request, jsonify, redirect, url_for, flash, send_file
 from services.security_helpers import require_plan
@@ -150,12 +150,12 @@ def register_bsi_routes(bp):
         reg = BSIRegistration.query.filter_by(
             id=reg_id, user_id=current_user.id
         ).first_or_404()
-        reg.exported_at = datetime.utcnow()
+        reg.exported_at = datetime.now(UTC)
         db.session.commit()
 
         export_data = {
             'export_format': 'NIS2-BSI-Registrierung-v1',
-            'exported_at': datetime.utcnow().isoformat(),
+            'exported_at': datetime.now(UTC).isoformat(),
             'company': {
                 'name': reg.company_name,
                 'legal_form': reg.legal_form,

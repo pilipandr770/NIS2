@@ -1,5 +1,5 @@
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pyotp
@@ -13,7 +13,7 @@ def _create_user(email: str, password: str, plan: str = "basic") -> User:
     user = User(
         email=email,
         subscription_plan=plan,
-        trial_ends_at=datetime.utcnow() + timedelta(days=14),
+        trial_ends_at=datetime.now(UTC) + timedelta(days=14),
         is_active=True,
         is_email_confirmed=True,
     )
@@ -79,7 +79,7 @@ def test_monitoring_scan_now_uses_manual_trigger(flask_app, client, monkeypatch)
             domain="example.com",
             label="Main",
             scan_frequency="monthly",
-            next_scan_at=datetime.utcnow(),
+            next_scan_at=datetime.now(UTC),
         )
         db.session.add(target)
         db.session.commit()

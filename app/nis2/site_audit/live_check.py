@@ -21,7 +21,7 @@ import ssl
 import subprocess
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, List
 
 # ---------------------------------------------------------------------------
@@ -195,7 +195,7 @@ def _check_tls(hostname: str) -> Dict[str, Any]:
                 if exp_str:
                     exp_dt = datetime.strptime(exp_str, "%b %d %H:%M:%S %Y %Z")
                     result["expiry"] = exp_dt.strftime("%Y-%m-%d")
-                    days = (exp_dt - datetime.utcnow()).days
+                    days = (exp_dt - datetime.now(UTC)).days
                     result["days_remaining"] = days
                     if days < 30:
                         result["warnings"].append(
@@ -453,7 +453,7 @@ def fetch_live_check(target: str) -> Dict[str, Any]:
     return {
         "target": target,
         "hostname": hostname,
-        "checked_at": datetime.utcnow().isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "http": http_result,
         "tls": tls_result,
         "cookies": cookie_result,

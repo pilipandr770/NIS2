@@ -15,7 +15,7 @@ Hardcoded "AndriiIT" constants replaced with platform/user parameters.
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
@@ -645,7 +645,7 @@ def generate_report_html(
     """
     logs = logs or []
     tools_used = tools_used or []
-    checked_at = live.get("checked_at", datetime.utcnow().isoformat())[:19].replace("T", " ")
+    checked_at = live.get("checked_at", datetime.now(UTC).isoformat())[:19].replace("T", " ")
 
     body = "\n".join([
         f'<div class="report-container">',

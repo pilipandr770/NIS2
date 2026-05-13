@@ -22,7 +22,7 @@ import logging
 import os
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
 import anthropic
@@ -227,7 +227,7 @@ def _auto_mark_tasks(tasks_list: List[Dict], findings: List[Dict]) -> None:
             else:
                 # Mark technical tasks as done only if no related finding
                 task["done"] = True
-                task["done_at"] = datetime.utcnow().isoformat()
+                task["done_at"] = datetime.now(UTC).isoformat()
                 task["notes"] = "Automatisch geprüft — kein kritisches Finding"
 
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.extensions import db
 from app.models import User
@@ -250,7 +250,7 @@ def test_operational_routes_work_without_db_hacks(flask_app, client, monkeypatch
             medium_count=0,
             low_count=0,
             triggered_by=triggered_by,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(UTC),
             results_json='{"status":"ok"}',
             diff_json='{}',
         )

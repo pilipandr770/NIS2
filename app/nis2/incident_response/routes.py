@@ -7,7 +7,7 @@ Incident management with BSI Meldepflicht tracking.
 import json
 import logging
 import threading
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import (abort, current_app, flash, jsonify, redirect,
                    render_template, request, url_for)
@@ -55,7 +55,7 @@ def register_incident_routes(bp):
         return render_template('nis2/incident_response/list.html',
                                incidents=incidents,
                                categories=INCIDENT_CATEGORIES,
-                               now=datetime.utcnow())
+                               now=datetime.now(UTC))
 
     # ── Create incident ───────────────────────────────────────────
     @bp.route('/incidents/create', methods=['GET', 'POST'])
@@ -66,7 +66,7 @@ def register_incident_routes(bp):
             detected_str = request.form.get('detected_at', '')
             occurred_str = request.form.get('occurred_at', '')
 
-            detected_at = _parse_dt(detected_str) or datetime.utcnow()
+            detected_at = _parse_dt(detected_str) or datetime.now(UTC)
             occurred_at = _parse_dt(occurred_str)
 
             incident = Incident(
@@ -91,7 +91,7 @@ def register_incident_routes(bp):
 
         return render_template('nis2/incident_response/create.html',
                                categories=INCIDENT_CATEGORIES,
-                               now=datetime.utcnow())
+                               now=datetime.now(UTC))
 
     # ── Incident detail ───────────────────────────────────────────
     @bp.route('/incidents/<int:incident_id>')
@@ -113,7 +113,7 @@ def register_incident_routes(bp):
             drafts=drafts,
             timeline=timeline,
             stage_meta=STAGE_META,
-            now=datetime.utcnow(),
+            now=datetime.now(UTC),
         )
 
     # ── Update incident ───────────────────────────────────────────
@@ -182,7 +182,7 @@ def register_incident_routes(bp):
             stage=stage,
             content=content,
             generated_by_ai=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         db.session.add(draft)
         incident.log(f'BSI-Meldungsentwurf generiert: {STAGE_META[stage]["label"]}',
@@ -215,7 +215,7 @@ def register_incident_routes(bp):
             abort(403)
         draft = IncidentDraft.query.get_or_404(draft_id)
         draft.content = request.form.get('content', draft.content)
-        draft.updated_at = datetime.utcnow()
+        draft.updated_at = datetime.now(UTC)
         db.session.commit()
         flash('Entwurf gespeichert.', 'success')
         return redirect(url_for('nis2.incident_draft_view',
@@ -231,7 +231,7 @@ def register_incident_routes(bp):
             abort(403)
         draft = IncidentDraft.query.get_or_404(draft_id)
 
-        draft.submitted_at = datetime.utcnow()
+        draft.submitted_at = datetime.now(UTC)
         draft.is_approved = True
         draft.bsi_reference = request.form.get('bsi_reference', '').strip()
 

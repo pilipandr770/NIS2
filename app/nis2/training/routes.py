@@ -13,7 +13,7 @@ import json
 import logging
 import secrets
 import smtplib
-from datetime import datetime
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -225,7 +225,7 @@ def register_training_routes(bp):
               or request.remote_addr or '')
 
         training.gf_acknowledged = True
-        training.gf_acknowledged_at = datetime.utcnow()
+        training.gf_acknowledged_at = datetime.now(UTC)
         training.gf_acknowledged_name = gf_name
         training.gf_acknowledged_ip = ip[:45]
         db.session.commit()
@@ -293,7 +293,7 @@ def register_training_routes(bp):
                 error_count += 1
 
         training.status = 'sent'
-        training.sent_at = datetime.utcnow()
+        training.sent_at = datetime.now(UTC)
         db.session.commit()
 
         if sent_count:
@@ -332,7 +332,7 @@ def register_training_routes(bp):
 
         # Record first open
         if not ack.opened_at:
-            ack.opened_at = datetime.utcnow()
+            ack.opened_at = datetime.now(UTC)
             db.session.commit()
 
         if request.method == 'POST':
@@ -354,7 +354,7 @@ def register_training_routes(bp):
             ip = ip[:45]
 
             ack.acknowledged = True
-            ack.acknowledged_at = datetime.utcnow()
+            ack.acknowledged_at = datetime.now(UTC)
             ack.confirmed_name = confirmed_name
             ack.ip_address = ip
             db.session.commit()
@@ -396,7 +396,7 @@ def register_training_routes(bp):
         return render_template('nis2/training/report.html',
                                training=training,
                                acks=acks,
-                               now=datetime.utcnow(),
+                               now=datetime.now(UTC),
                                topics=dict(TRAINING_TOPICS))
 
     # ── Delete (draft only) ───────────────────────────────────────

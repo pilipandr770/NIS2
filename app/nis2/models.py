@@ -28,7 +28,7 @@ Tables:
 
 import os
 import json
-from datetime import datetime, date
+from datetime import UTC, datetime, date
 
 from app.extensions import db
 
@@ -556,7 +556,10 @@ class Incident(db.Model):
     def hours_since_detection(self):
         if not self.detected_at:
             return 0
-        return int((datetime.utcnow() - self.detected_at).total_seconds() / 3600)
+        detected = self.detected_at
+        if detected.tzinfo is None:
+            detected = detected.replace(tzinfo=UTC)
+        return int((datetime.now(UTC) - detected).total_seconds() / 3600)
 
     def log(self, action: str, details: str = '', performed_by: str = 'system'):
         """Add an entry to the incident timeline."""

@@ -9,7 +9,7 @@ import csv
 import io
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import (abort, flash, jsonify, redirect, render_template,
                    request, url_for)
@@ -148,7 +148,7 @@ def register_supply_chain_routes(bp):
         supplier.avv_review_due = _parse_date(request.form.get('avv_expiry'))
         supplier.has_iso27001 = request.form.get('iso27001_certified') == 'on'
         supplier.notes = request.form.get('notes', supplier.notes)
-        supplier.updated_at = datetime.utcnow()
+        supplier.updated_at = datetime.now(UTC)
         db.session.commit()
         flash('Lieferant aktualisiert.', 'success')
         return redirect(url_for('nis2.supply_chain_detail', supplier_id=supplier_id))
@@ -189,7 +189,7 @@ def register_supply_chain_routes(bp):
         # Compute new risk score based on results
         risk_score = _compute_risk_score(supplier, results)
         supplier.risk_score = risk_score
-        supplier.last_verification_at = datetime.utcnow()
+        supplier.last_verification_at = datetime.now(UTC)
         supplier.verification_results_json = json.dumps(results, ensure_ascii=False, default=str)
         db.session.commit()
 
@@ -214,10 +214,10 @@ def register_supply_chain_routes(bp):
             risk_score=score,
             notes=request.form.get('notes', ''),
             assessed_by=current_user.id,
-            assessed_at=datetime.utcnow(),
+            assessed_at=datetime.now(UTC),
         )
         supplier.risk_score = score
-        supplier.last_assessment_at = datetime.utcnow()
+        supplier.last_assessment_at = datetime.now(UTC)
         db.session.add(assessment)
         db.session.commit()
         flash('Bewertung gespeichert.', 'success')

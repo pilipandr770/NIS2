@@ -7,7 +7,7 @@ Parallel requirement to NIS2 — incidents triggering §32 reporting often also
 trigger DSGVO Art. 33 notifications, so both registers should be maintained.
 """
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from flask import flash, make_response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
@@ -101,12 +101,12 @@ def register_dsgvo_routes(bp):
                       .all())
         html = render_template('nis2/dsgvo/export.html',
                                activities=activities,
-                               generated_at=datetime.utcnow(),
+                               generated_at=datetime.now(UTC),
                                user=current_user)
         resp = make_response(html)
         resp.headers['Content-Type'] = 'text/html; charset=utf-8'
         resp.headers['Content-Disposition'] = (
-            f'attachment; filename="VVT-Art30-{datetime.utcnow().strftime("%Y%m%d")}.html"'
+            f'attachment; filename="VVT-Art30-{datetime.now(UTC).strftime("%Y%m%d")}.html"'
         )
         return resp
 
@@ -144,4 +144,4 @@ def _populate(act: ProcessingActivity, form) -> None:
 
     review = form.get('next_review_date', '').strip()
     act.next_review_date = date.fromisoformat(review) if review else None
-    act.last_reviewed_at = datetime.utcnow()
+    act.last_reviewed_at = datetime.now(UTC)

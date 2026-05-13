@@ -6,7 +6,7 @@ Reuses WebsiteSecurityScanner from app/pentesting/.
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from services.security_helpers import require_plan
@@ -66,7 +66,7 @@ def register_monitoring_routes(bp):
                 alert_on_degradation=request.form.get('alert_on_degradation') in ('on', '1'),
                 alert_threshold=float(request.form.get('alert_threshold', 10)),
                 alert_email=request.form.get('alert_email', '').strip() or current_user.email,
-                next_scan_at=datetime.utcnow(),   # scan immediately on first add
+                next_scan_at=datetime.now(UTC),   # scan immediately on first add
             )
             db.session.add(target)
             db.session.commit()

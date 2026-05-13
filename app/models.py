@@ -5,7 +5,7 @@ Standalone — no dependency on external CRM/VAT modules.
 
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -121,15 +121,16 @@ class User(UserMixin, db.Model):
 
     def generate_reset_token(self) -> str:
         self.password_reset_token = secrets.token_urlsafe(32)
-        self.password_reset_expires = datetime.utcnow() + timedelta(hours=2)
+        self.password_reset_expires = datetime.now(UTC) + timedelta(hours=2)
         return self.password_reset_token
 
     def is_reset_token_valid(self, token: str) -> bool:
-        return (
-            self.password_reset_token == token
-            and self.password_reset_expires
-            and datetime.utcnow() < self.password_reset_expires
-        )
+        if not (self.password_reset_token == token and self.password_reset_expires):
+            return False
+        exp = self.password_reset_expires
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=UTC)
+        return datetime.now(UTC) < exp
 
     # ── Subscription helpers ──────────────────────────────────────────────
 
@@ -139,7 +140,10 @@ class User(UserMixin, db.Model):
             return False
         if not self.trial_ends_at:
             return False
-        return datetime.utcnow() < self.trial_ends_at
+        ends_at = self.trial_ends_at
+        if ends_at.tzinfo is None:
+            ends_at = ends_at.replace(tzinfo=UTC)
+        return datetime.now(UTC) < ends_at
 
     @property
     def has_access(self) -> bool:
