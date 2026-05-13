@@ -82,6 +82,10 @@ def create_app(config_name: str = None) -> Flask:
     def not_found(e):
         return render_template('errors/404.html'), 404
 
+    @app.errorhandler(405)
+    def method_not_allowed(e):
+        return render_template('errors/405.html'), 405
+
     @app.errorhandler(500)
     def server_error(e):
         return render_template('errors/500.html'), 500
