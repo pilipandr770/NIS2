@@ -53,6 +53,9 @@ def create_app(config_name: str = None) -> Flask:
     from app.nis2 import nis2_bp
     app.register_blueprint(nis2_bp, url_prefix='/nis2')
 
+    from legal.routes import legal_bp
+    app.register_blueprint(legal_bp, url_prefix='/legal')
+
     # ── NIS2 monitoring scheduler ─────────────────────────────────────────
     if not app.config.get('DISABLE_NIS2_SCHEDULER', False):
         try:
