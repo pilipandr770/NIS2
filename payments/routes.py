@@ -61,6 +61,28 @@ def checkout_success():
     return redirect(url_for('nis2.dashboard'))
 
 
+@payments_bp.route('/cancel-subscription', methods=['POST'])
+@login_required
+def cancel_subscription():
+    """Cancel active Stripe subscription at period end."""
+    import stripe
+    cfg = current_app.config
+    stripe.api_key = cfg.get('STRIPE_SECRET_KEY')
+
+    sub_id = current_user.stripe_subscription_id
+    if not sub_id:
+        flash('Keine aktive Stripe-Subscription gefunden.', 'warning')
+        return redirect(url_for('auth.profile'))
+
+    try:
+        stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
+        flash('Ihr Abonnement wird zum Periodenende nicht verlängert.', 'info')
+    except Exception as exc:
+        flash(f'Fehler beim Kündigen: {exc}', 'danger')
+
+    return redirect(url_for('auth.profile'))
+
+
 @payments_bp.route('/webhook', methods=['POST'])
 def stripe_webhook():
     """Stripe webhook — update subscription_plan on successful payment."""
