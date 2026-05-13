@@ -309,7 +309,7 @@ def _section_findings(findings: List[Dict]) -> str:
 
 
 def _section_checklist(tasks: List[Dict]) -> str:
-    categories = ["Technisch", "Organisatorisch", "DSGVO"]
+    categories = ["Technisch", "Organisatorisch", "DSGVO", "Remediation"]
     parts = []
     for cat in categories:
         cat_tasks = [t for t in tasks if t.get("category") == cat]

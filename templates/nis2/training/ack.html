@@ -74,8 +74,8 @@
           <h3 class="mt-4">{{ line[2:] }}</h3>
         {% elif line.startswith('- ') or line.startswith('* ') %}
           <li>{{ line[2:] | replace('**', '') }}</li>
-        {% elif line | regex_search('^\d+\. ') %}
-          <li>{{ line | replace('**', '') }}</li>
+        {% elif line and line[0].isdigit() and '. ' in line %}
+          <li>{{ line.split('. ', 1)[1] | replace('**', '') }}</li>
         {% elif line == '' %}
           <div class="mb-2"></div>
         {% else %}

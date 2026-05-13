@@ -121,6 +121,23 @@ def _run_audit_in_thread(app, job_id: int, target: str) -> None:
                     db.session.add(finding)
                 db.session.commit()
 
+                # Create remediation tasks from findings for fix/re-test evidence.
+                finding_rows = NIS2Finding.query.filter_by(job_id=job_id).all()
+                for fn in finding_rows:
+                    task = NIS2AuditTask(
+                        job_id=job_id,
+                        category="Remediation",
+                        title=f"Finding beheben: {fn.title}",
+                        description=fn.recommendation or fn.description or "Technische Behebung erforderlich",
+                        nis2_ref="§30 Nr. 5/6",
+                        dsgvo_ref=fn.dsgvo_article or "",
+                        required=True,
+                        done=False,
+                        notes=f"Quelle: {fn.severity.upper()} via {fn.tool or 'scan'}",
+                    )
+                    db.session.add(task)
+                db.session.commit()
+
                 # Generate report
                 findings_for_report = [
                     {
@@ -192,6 +209,21 @@ def _run_audit_in_thread(app, job_id: int, target: str) -> None:
                         tool=f.get("tool", ""),
                     )
                     db.session.add(finding)
+
+                # Create remediation tasks from findings for fix/re-test evidence.
+                for f in result.get("findings", []):
+                    task = NIS2AuditTask(
+                        job_id=job_id,
+                        category="Remediation",
+                        title=f"Finding beheben: {f.get('title', '')}",
+                        description=f.get("recommendation") or f.get("description") or "Technische Behebung erforderlich",
+                        nis2_ref="§30 Nr. 5/6",
+                        dsgvo_ref=f.get("dsgvo_article", ""),
+                        required=True,
+                        done=False,
+                        notes=f"Quelle: {(f.get('severity') or 'info').upper()} via {f.get('tool') or 'scan'}",
+                    )
+                    db.session.add(task)
 
                 # Persist tasks
                 for t in result.get("tasks", []):
@@ -307,9 +339,11 @@ def register_site_audit_routes(bp) -> None:
     @bp.route("/audit/new")
     def site_audit_new():
         from app.nis2.site_audit.microservice_client import is_configured
+        prefill_target = request.args.get("target", "")
         return render_template(
             "nis2/site_audit/new.html",
             microservice_active=is_configured(),
+            prefill_target=prefill_target,
         )
 
     # ── Start ──────────────────────────────────────────────────────────────
@@ -384,6 +418,36 @@ def register_site_audit_routes(bp) -> None:
                 for e in entries
             ],
         })
+
+    # ── Update remediation/checklist task status ──────────────────────────
+    @bp.route("/audit/<int:job_id>/tasks/<int:task_id>/update", methods=["POST"])
+    def site_audit_task_update(job_id: int, task_id: int):
+        from app.nis2.models import NIS2AuditJob, NIS2AuditTask
+        job = db.session.get(NIS2AuditJob, job_id)
+        if not job or job.user_id != current_user.id:
+            abort(404)
+
+        task = db.session.get(NIS2AuditTask, task_id)
+        if not task or task.job_id != job_id:
+            abort(404)
+
+        done = request.form.get("done") == "1"
+        notes = (request.form.get("notes") or "").strip()
+        retest_job_id = (request.form.get("retest_job_id") or "").strip()
+
+        task.done = done
+        task.done_at = datetime.utcnow() if done else None
+
+        if done and retest_job_id:
+            tag = f"Retested in Audit #{retest_job_id}"
+            if notes:
+                notes = f"{notes} | {tag}"
+            else:
+                notes = tag
+
+        task.notes = notes
+        db.session.commit()
+        return redirect(url_for("nis2.site_audit_detail", job_id=job_id))
 
     # ── Report (inline view) ───────────────────────────────────────────────
     @bp.route("/audit/<int:job_id>/report")

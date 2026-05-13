@@ -32,6 +32,10 @@
         </div>
         <div class="d-flex gap-2">
           {% if job.status == 'done' %}
+          <a href="{{ url_for('nis2.site_audit_new', target=job.target) }}"
+             class="btn btn-outline-primary">
+            🔁 Re-Test starten
+          </a>
           <a href="{{ url_for('nis2.site_audit_report', job_id=job.id) }}"
              target="_blank" class="btn btn-success">
             📄 Bericht ansehen
@@ -49,8 +53,8 @@
 
       <!-- Summary stats (shown when done) -->
       {% if job.status == 'done' %}
-      {% set findings_list = job.findings.all() %}
-      {% set tasks_list = job.tasks.all() %}
+      {% set findings_list = job.findings %}
+      {% set tasks_list = job.tasks %}
       {% set critical_count = findings_list | selectattr('severity', 'equalto', 'critical') | list | length %}
       {% set high_count = findings_list | selectattr('severity', 'equalto', 'high') | list | length %}
       {% set done_tasks = tasks_list | selectattr('done') | list | length %}
@@ -128,6 +132,68 @@
             + {{ findings_list | length - 10 }} weitere Findings im Bericht
           </div>
           {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% set remediation_tasks = tasks_list | selectattr('category', 'equalto', 'Remediation') | list %}
+      {% if remediation_tasks %}
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+          <h5 class="mb-0">Remediation-Workflow (Open / Fixed / Re-Tested)</h5>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Maßnahme</th>
+                <th>Status</th>
+                <th>Notiz / Re-Test-Audit</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in remediation_tasks %}
+              <tr>
+                <td>
+                  <strong>{{ t.title }}</strong>
+                  <div class="small text-muted">{{ t.description }}</div>
+                </td>
+                <td>
+                  {% if t.done %}
+                    {% if t.notes and 'Retested in Audit #' in t.notes %}
+                      <span class="badge bg-primary">RE-TESTED</span>
+                    {% else %}
+                      <span class="badge bg-success">FIXED</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="badge bg-warning text-dark">OPEN</span>
+                  {% endif %}
+                </td>
+                <td style="min-width:280px;">
+                  <form method="post" action="{{ url_for('nis2.site_audit_task_update', job_id=job.id, task_id=t.id) }}" class="d-flex gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="done" value="1">
+                    <input type="text" name="notes" class="form-control form-control-sm"
+                           placeholder="Fix-Notiz" value="{{ t.notes or '' }}">
+                    <input type="text" name="retest_job_id" class="form-control form-control-sm"
+                           placeholder="Audit-ID für Re-Test">
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-success" title="Als behoben speichern">Save</button>
+                  </form>
+                  {% if t.done %}
+                  <form method="post" action="{{ url_for('nis2.site_audit_task_update', job_id=job.id, task_id=t.id) }}" class="mt-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="done" value="0">
+                    <button class="btn btn-sm btn-outline-secondary" title="Zurück auf offen">Reopen</button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
       {% endif %}

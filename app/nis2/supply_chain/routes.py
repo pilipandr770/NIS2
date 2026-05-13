@@ -170,7 +170,7 @@ def register_supply_chain_routes(bp):
                 from services.vat_lookup import VatLookupService
                 vat_svc = VatLookupService()
                 vat_result = vat_svc.lookup(supplier.vat_id)
-                results['vat'] = vat_result
+                results['vat'] = _normalize_vat_result(vat_result)
             except Exception as exc:
                 results['vat'] = {'status': 'error', 'error': str(exc)}
 
@@ -178,8 +178,11 @@ def register_supply_chain_routes(bp):
         try:
             from services.sanctions import SanctionsService
             sanctions = SanctionsService()
-            sanctions_result = sanctions.check_sanctions(supplier.company_name)
-            results['sanctions'] = sanctions_result
+            if hasattr(sanctions, 'check_sanctions'):
+                sanctions_result = sanctions.check_sanctions(supplier.company_name)
+            else:
+                sanctions_result = sanctions.check(supplier.company_name, supplier.country or '')
+            results['sanctions'] = _normalize_sanctions_result(sanctions_result)
         except Exception as exc:
             results['sanctions'] = {'status': 'error', 'error': str(exc)}
 
@@ -265,6 +268,61 @@ def _parse_date(value: str):
         except (ValueError, AttributeError):
             continue
     return None
+
+
+def _normalize_vat_result(raw) -> dict:
+    """Normalize VAT service responses from dict or object stubs."""
+    if isinstance(raw, dict):
+        return raw
+
+    valid = getattr(raw, 'valid', None)
+    company = getattr(raw, 'company_name', None)
+    address = getattr(raw, 'address', None)
+    error = getattr(raw, 'error', None)
+
+    if valid is True:
+        status = 'valid'
+    elif valid is False:
+        status = 'invalid'
+    elif error:
+        status = 'error'
+    else:
+        status = 'unknown'
+
+    return {
+        'status': status,
+        'prefill': {
+            'counterparty_name': company,
+            'counterparty_address': address,
+        },
+        'messages': [],
+        'error': error,
+    }
+
+
+def _normalize_sanctions_result(raw) -> dict:
+    """Normalize sanctions service responses from dict or object stubs."""
+    if isinstance(raw, dict):
+        return raw
+
+    clear = getattr(raw, 'clear', None)
+    hits = getattr(raw, 'hits', None) or []
+    error = getattr(raw, 'error', None)
+
+    if clear is True:
+        status = 'clear'
+    elif clear is False:
+        status = 'hit'
+    elif error:
+        status = 'error'
+    else:
+        status = 'unknown'
+
+    return {
+        'status': status,
+        'sanctions_found': hits,
+        'error': error,
+    }
 
 
 def _compute_risk_score(supplier: Supplier, results: dict) -> int:

@@ -4,7 +4,7 @@ NIS2 Compliance Platform — Application Factory
 
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from flask import Flask, render_template
 from sqlalchemy import text
@@ -38,7 +38,7 @@ def create_app(config_name: str = None) -> Flask:
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     # Ensure DB schema exists (PostgreSQL)
     _ensure_schema(app)
@@ -70,7 +70,7 @@ def create_app(config_name: str = None) -> Flask:
     @app.context_processor
     def inject_globals():
         return {
-            'now': datetime.utcnow(),
+            'now': datetime.now(UTC),
             'app_name': 'NIS2 Compliance Platform',
         }
 

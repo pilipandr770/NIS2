@@ -34,6 +34,7 @@
           {% endif %}
 
           <form method="post" action="{{ url_for('nis2.site_audit_start') }}" id="auditForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-4">
               <label for="target" class="form-label fw-semibold">
                 Ziel-URL oder Domain <span class="text-danger">*</span>
@@ -45,6 +46,7 @@
                   class="form-control"
                   id="target"
                   name="target"
+                  value="{{ prefill_target or '' }}"
                   placeholder="z.B. https://www.ihre-firma.de"
                   required
                   autocomplete="off"
