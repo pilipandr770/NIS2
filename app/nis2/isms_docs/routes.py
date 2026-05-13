@@ -6,10 +6,12 @@ ISMS Docs — Routes
 
 import json
 import logging
+import threading
 from datetime import UTC, datetime
 
-from flask import (abort, current_app, flash, jsonify, make_response, redirect,
-                   render_template, request, send_file, url_for)
+from flask import (Response, abort, current_app, flash, jsonify, make_response,
+                   redirect, render_template, request, send_file,
+                   stream_with_context, url_for)
 from services.security_helpers import require_plan
 from flask_login import current_user, login_required
 
@@ -127,7 +129,7 @@ def register_isms_routes(bp):
     @login_required
     @require_plan("professional")
     def isms_generate_one(interview_id: int):
-        """Generate a single document. Called sequentially by JS to avoid worker timeout."""
+        """Generate a single ISMS document via SSE to keep Render's load balancer alive."""
         interview = ISMSInterview.query.get_or_404(interview_id)
         if interview.user_id != current_user.id:
             abort(403)
@@ -147,32 +149,83 @@ def register_isms_routes(bp):
         ).first()
 
         if existing and not data.get('regenerate'):
-            return jsonify({'doc_type': doc_type_key, 'id': existing.id, 'cached': True})
+            def cached_stream():
+                yield f'data: {json.dumps({"doc_type": doc_type_key, "id": existing.id, "cached": True})}\n\n'.encode()
+            return Response(stream_with_context(cached_stream()), content_type='text/event-stream',
+                            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
-        generator = ISMSDocumentGenerator()
-        content, error = generator.generate_document(doc_type_key, all_data)
-        if error:
-            return jsonify({'doc_type': doc_type_key, 'error': error}), 500
+        # Run Claude in a background thread so we can stream SSE keepalives to the client.
+        # This prevents Render's 30-second load-balancer timeout from killing the connection.
+        result_holder: dict = {'done': False, 'content': None, 'error': None}
+        app = current_app._get_current_object()
+        user_id = current_user.id
 
-        if existing:
-            existing.content_md = content
-            existing.content = content
-            doc = existing
-        else:
-            doc = ISMSDocument(
-                user_id=current_user.id,
-                interview_id=interview_id,
-                doc_type=doc_type_key,
-                title=doc_name,
-                content_md=content,
-                content=content,
-                is_generated=True,
-            )
-            db.session.add(doc)
+        def run_claude():
+            with app.app_context():
+                gen = ISMSDocumentGenerator()
+                content, error = gen.generate_document(doc_type_key, all_data)
+                result_holder['content'] = content
+                result_holder['error'] = error
+                result_holder['done'] = True
 
-        interview.completed_at = datetime.now(UTC)
-        db.session.commit()
-        return jsonify({'doc_type': doc_type_key, 'id': doc.id, 'cached': False})
+        thread = threading.Thread(target=run_claude, daemon=True)
+        thread.start()
+
+        iid = interview_id
+
+        def generate_sse():
+            import time
+            while not result_holder['done']:
+                yield b': keepalive\n\n'
+                time.sleep(10)
+
+            if result_holder['error']:
+                yield f'data: {json.dumps({"doc_type": doc_type_key, "error": result_holder["error"]})}\n\n'.encode()
+                return
+
+            content = result_holder['content']
+            try:
+                with app.app_context():
+                    existing_doc = ISMSDocument.query.filter_by(
+                        interview_id=iid, doc_type=doc_type_key
+                    ).first()
+                    if existing_doc:
+                        existing_doc.content_md = content
+                        existing_doc.content = content
+                        doc_id = existing_doc.id
+                    else:
+                        new_doc = ISMSDocument(
+                            user_id=user_id,
+                            interview_id=iid,
+                            doc_type=doc_type_key,
+                            title=doc_name,
+                            content_md=content,
+                            content=content,
+                            is_generated=True,
+                        )
+                        from app.extensions import db as _db
+                        _db.session.add(new_doc)
+                        _db.session.flush()
+                        doc_id = new_doc.id
+                    intvw = ISMSInterview.query.get(iid)
+                    if intvw:
+                        intvw.completed_at = datetime.now(UTC)
+                    from app.extensions import db as _db
+                    _db.session.commit()
+            except Exception as exc:
+                logger.error('DB save error for %s: %s', doc_type_key, exc)
+                from app.extensions import db as _db
+                _db.session.rollback()
+                yield f'data: {json.dumps({"doc_type": doc_type_key, "error": str(exc)})}\n\n'.encode()
+                return
+
+            yield f'data: {json.dumps({"doc_type": doc_type_key, "id": doc_id, "cached": False})}\n\n'.encode()
+
+        return Response(
+            generate_sse(),
+            content_type='text/event-stream',
+            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+        )
 
     # ── Document list ─────────────────────────────────────────────
     @bp.route('/isms/interview/<int:interview_id>/documents')

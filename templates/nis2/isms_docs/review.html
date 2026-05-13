@@ -75,6 +75,26 @@
 
 {% block scripts %}
 <script>
+async function readSSE(response) {
+  // Read a single SSE stream and return the first data: payload as parsed JSON.
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream: true});
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try { return JSON.parse(line.slice(6)); } catch(e) {}
+      }
+    }
+  }
+  throw new Error('SSE stream closed without data');
+}
+
 async function startGeneration() {
   const btn = document.getElementById('generateBtn');
   const progressArea = document.getElementById('progressArea');
@@ -116,7 +136,7 @@ async function startGeneration() {
     return;
   }
 
-  // Step 2: generate each document sequentially
+  // Step 2: generate each document sequentially via SSE
   const progressBar = document.getElementById('progressBar');
   const progressLabel = document.getElementById('progressLabel');
   let done = 0;
@@ -136,14 +156,18 @@ async function startGeneration() {
       });
 
       const el = document.getElementById('status_' + docType);
-      if (r.ok) {
-        done++;
-        if (el) el.querySelector('.status-icon').className = 'bi bi-check-circle text-success status-icon';
-      } else {
-        let errMsg = 'HTTP ' + r.status;
-        try { const d = await r.json(); errMsg = d.error || errMsg; } catch(e) {}
-        errors.push(docType + ': ' + errMsg);
+      if (!r.ok) {
+        errors.push(docType + ': HTTP ' + r.status);
         if (el) el.querySelector('.status-icon').className = 'bi bi-x-circle text-danger status-icon';
+      } else {
+        const payload = await readSSE(r);
+        if (payload.error) {
+          errors.push(docType + ': ' + payload.error);
+          if (el) el.querySelector('.status-icon').className = 'bi bi-x-circle text-danger status-icon';
+        } else {
+          done++;
+          if (el) el.querySelector('.status-icon').className = 'bi bi-check-circle text-success status-icon';
+        }
       }
     } catch (err) {
       errors.push(docType + ': ' + err.message);

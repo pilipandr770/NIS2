@@ -45,6 +45,20 @@ def register_compliance_report_routes(bp):
         return render_template('nis2/compliance_report/index.html',
                                **data, print_mode=False)
 
+    @bp.route('/compliance-report/download')
+    @login_required
+    def compliance_report_download():
+        data = _collect_report_data(current_user.id)
+        html = render_template('nis2/compliance_report/index.html',
+                               **data, print_mode=True)
+        resp = make_response(html)
+        resp.headers['Content-Type'] = 'text/html; charset=utf-8'
+        resp.headers['Content-Disposition'] = (
+            f'attachment; filename="NIS2-Compliance-Report-'
+            f'{datetime.now(UTC).strftime("%Y%m%d")}.html"'
+        )
+        return resp
+
 
 # ─────────────────────────────────────────────────────────────────
 # Data collection
