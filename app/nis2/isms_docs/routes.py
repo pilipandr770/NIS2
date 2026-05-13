@@ -4,14 +4,13 @@ ISMS Docs — Routes
 4-phase interview + AI document generation endpoint.
 """
 
-import json
 import logging
 import threading
+import uuid
 from datetime import UTC, datetime
 
-from flask import (Response, abort, current_app, flash, jsonify, make_response,
-                   redirect, render_template, request, send_file,
-                   stream_with_context, url_for)
+from flask import (abort, current_app, flash, jsonify, make_response,
+                   redirect, render_template, request, send_file, url_for)
 from services.security_helpers import require_plan
 from flask_login import current_user, login_required
 
@@ -22,6 +21,10 @@ from .generator import ISMSDocumentGenerator, get_phase_definitions
 logger = logging.getLogger(__name__)
 
 _NUM_PHASES = 4
+
+# In-memory job store. Requires --workers 1 in Procfile so all threads
+# share this dict. Background daemon threads update it; poll endpoint reads it.
+_jobs: dict = {}
 
 
 def register_isms_routes(bp):
@@ -129,7 +132,7 @@ def register_isms_routes(bp):
     @login_required
     @require_plan("professional")
     def isms_generate_one(interview_id: int):
-        """Generate a single ISMS document via SSE to keep Render's load balancer alive."""
+        """Start background generation job; return job_id immediately (no long HTTP connection)."""
         interview = ISMSInterview.query.get_or_404(interview_id)
         if interview.user_id != current_user.id:
             abort(403)
@@ -149,43 +152,25 @@ def register_isms_routes(bp):
         ).first()
 
         if existing and not data.get('regenerate'):
-            def cached_stream():
-                yield f'data: {json.dumps({"doc_type": doc_type_key, "id": existing.id, "cached": True})}\n\n'.encode()
-            return Response(stream_with_context(cached_stream()), content_type='text/event-stream',
-                            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+            return jsonify({'doc_type': doc_type_key, 'id': existing.id, 'status': 'done', 'cached': True})
 
-        # Run Claude in a background thread so we can stream SSE keepalives to the client.
-        # This prevents Render's 30-second load-balancer timeout from killing the connection.
-        result_holder: dict = {'done': False, 'content': None, 'error': None}
+        job_id = str(uuid.uuid4())
+        _jobs[job_id] = {'status': 'pending', 'doc_type': doc_type_key}
+
         app = current_app._get_current_object()
         user_id = current_user.id
-
-        def run_claude():
-            with app.app_context():
-                gen = ISMSDocumentGenerator()
-                content, error = gen.generate_document(doc_type_key, all_data)
-                result_holder['content'] = content
-                result_holder['error'] = error
-                result_holder['done'] = True
-
-        thread = threading.Thread(target=run_claude, daemon=True)
-        thread.start()
-
         iid = interview_id
 
-        def generate_sse():
-            import time
-            while not result_holder['done']:
-                yield b': keepalive\n\n'
-                time.sleep(5)
+        def run_job():
+            with app.app_context():
+                try:
+                    from app.extensions import db as _db
+                    gen = ISMSDocumentGenerator()
+                    content, error = gen.generate_document(doc_type_key, all_data)
+                    if error:
+                        _jobs[job_id] = {'status': 'error', 'doc_type': doc_type_key, 'error': error}
+                        return
 
-            if result_holder['error']:
-                yield f'data: {json.dumps({"doc_type": doc_type_key, "error": result_holder["error"]})}\n\n'.encode()
-                return
-
-            content = result_holder['content']
-            try:
-                with app.app_context():
                     existing_doc = ISMSDocument.query.filter_by(
                         interview_id=iid, doc_type=doc_type_key
                     ).first()
@@ -203,29 +188,39 @@ def register_isms_routes(bp):
                             content=content,
                             is_generated=True,
                         )
-                        from app.extensions import db as _db
                         _db.session.add(new_doc)
                         _db.session.flush()
                         doc_id = new_doc.id
+
                     intvw = ISMSInterview.query.get(iid)
                     if intvw:
                         intvw.completed_at = datetime.now(UTC)
-                    from app.extensions import db as _db
                     _db.session.commit()
-            except Exception as exc:
-                logger.error('DB save error for %s: %s', doc_type_key, exc)
-                from app.extensions import db as _db
-                _db.session.rollback()
-                yield f'data: {json.dumps({"doc_type": doc_type_key, "error": str(exc)})}\n\n'.encode()
-                return
+                    _jobs[job_id] = {'status': 'done', 'doc_type': doc_type_key, 'id': doc_id}
+                except Exception as exc:
+                    logger.error('Job %s failed: %s', job_id, exc, exc_info=True)
+                    try:
+                        from app.extensions import db as _db
+                        _db.session.rollback()
+                    except Exception:
+                        pass
+                    _jobs[job_id] = {'status': 'error', 'doc_type': doc_type_key, 'error': str(exc)}
 
-            yield f'data: {json.dumps({"doc_type": doc_type_key, "id": doc_id, "cached": False})}\n\n'.encode()
+        threading.Thread(target=run_job, daemon=True).start()
+        return jsonify({'job_id': job_id, 'doc_type': doc_type_key, 'status': 'pending'})
 
-        return Response(
-            generate_sse(),
-            content_type='text/event-stream',
-            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
-        )
+    @bp.route('/isms/interview/<int:interview_id>/generate-one/poll/<job_id>', methods=['GET'])
+    @login_required
+    @require_plan("professional")
+    def isms_generate_poll(interview_id: int, job_id: str):
+        """Return current job status. Called by frontend every 3 s until done or error."""
+        interview = ISMSInterview.query.get_or_404(interview_id)
+        if interview.user_id != current_user.id:
+            abort(403)
+        job = _jobs.get(job_id)
+        if not job:
+            return jsonify({'status': 'error', 'error': 'Job nicht gefunden (Server neu gestartet?)'}), 404
+        return jsonify(job)
 
     # ── Document list ─────────────────────────────────────────────
     @bp.route('/isms/interview/<int:interview_id>/documents')

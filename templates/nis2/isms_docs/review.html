@@ -75,24 +75,32 @@
 
 {% block scripts %}
 <script>
-async function readSSE(response) {
-  // Read a single SSE stream and return the first data: payload as parsed JSON.
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const {done, value} = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, {stream: true});
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try { return JSON.parse(line.slice(6)); } catch(e) {}
-      }
-    }
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function generateOneDoc(interviewId, docType, csrfToken) {
+  const r = await fetch(`/nis2/isms/interview/${interviewId}/generate-one`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+    body: JSON.stringify({doc_type: docType, regenerate: true})
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const data = await r.json();
+  if (data.error) throw new Error(data.error);
+  if (data.status === 'done') return data;  // cached result
+
+  const jobId = data.job_id;
+  if (!jobId) throw new Error('Kein job_id erhalten');
+
+  // Poll until done or error (up to 150 × 3s = 7.5 min)
+  for (let i = 0; i < 150; i++) {
+    await sleep(3000);
+    const pr = await fetch(`/nis2/isms/interview/${interviewId}/generate-one/poll/${jobId}`);
+    if (!pr.ok) throw new Error('Poll HTTP ' + pr.status);
+    const pd = await pr.json();
+    if (pd.status === 'done') return pd;
+    if (pd.status === 'error') throw new Error(pd.error || 'Generierung fehlgeschlagen');
   }
-  throw new Error('SSE stream closed without data');
+  throw new Error('Timeout nach 7.5 Minuten');
 }
 
 async function startGeneration() {
@@ -136,46 +144,29 @@ async function startGeneration() {
     return;
   }
 
-  // Step 2: generate each document sequentially via SSE
+  // Step 2: generate each document sequentially via background job + polling
   const progressBar = document.getElementById('progressBar');
   const progressLabel = document.getElementById('progressLabel');
+  const docMeta = {{ doc_types | tojson }};
   let done = 0;
   let errors = [];
 
   for (const docType of docTypes) {
-    const docMeta = {{ doc_types | tojson }};
     const meta = docMeta[docType] || {};
     const label = meta.title || docType;
     if (progressLabel) progressLabel.textContent = `Generiere: ${label}…`;
 
+    const el = document.getElementById('status_' + docType);
     try {
-      const r = await fetch(`/nis2/isms/interview/${interviewId}/generate-one`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-        body: JSON.stringify({doc_type: docType, regenerate: true})
-      });
-
-      const el = document.getElementById('status_' + docType);
-      if (!r.ok) {
-        errors.push(docType + ': HTTP ' + r.status);
-        if (el) el.querySelector('.status-icon').className = 'bi bi-x-circle text-danger status-icon';
-      } else {
-        const payload = await readSSE(r);
-        if (payload.error) {
-          errors.push(docType + ': ' + payload.error);
-          if (el) el.querySelector('.status-icon').className = 'bi bi-x-circle text-danger status-icon';
-        } else {
-          done++;
-          if (el) el.querySelector('.status-icon').className = 'bi bi-check-circle text-success status-icon';
-        }
-      }
+      await generateOneDoc(interviewId, docType, csrfToken);
+      done++;
+      if (el) el.querySelector('.status-icon').className = 'bi bi-check-circle text-success status-icon';
     } catch (err) {
       errors.push(docType + ': ' + err.message);
-      const el = document.getElementById('status_' + docType);
       if (el) el.querySelector('.status-icon').className = 'bi bi-x-circle text-danger status-icon';
     }
 
-    const pct = Math.round(((done) / docTypes.length) * 100);
+    const pct = Math.round((done / docTypes.length) * 100);
     if (progressBar) { progressBar.style.width = pct + '%'; progressBar.setAttribute('aria-valuenow', pct); }
   }
 
