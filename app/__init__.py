@@ -85,31 +85,31 @@ def create_app(config_name: str = None) -> Flask:
 
     @app.cli.command('create-admin')
     @click.option('--email', default='pylypchukandrii770@gmail.com')
-    @click.option('--password', default='Dnepr75ok10$$')
+    @click.option('--password', default='Dnepr75ok10$')
     @click.option('--plan', default='enterprise')
     def create_admin(email, password, plan):
         """Create or promote a user to super-admin."""
-        with app.app_context():
-            user = User.query.filter_by(email=email).first()
-            if user:
-                user.is_admin = True
-                user.subscription_plan = plan
-                user.set_password(password)
-                db.session.commit()
-                click.echo(f'Updated existing user {email} → admin=True, plan={plan}')
-            else:
-                user = User(
-                    email=email,
-                    first_name='Andrii',
-                    last_name='Admin',
-                    subscription_plan=plan,
-                    is_admin=True,
-                    is_active=True,
-                )
-                user.set_password(password)
-                db.session.add(user)
-                db.session.commit()
-                click.echo(f'Created admin user {email} (plan={plan})')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.is_admin = True
+            user.is_active = True
+            user.subscription_plan = plan
+            user.set_password(password)
+            db.session.commit()
+            click.echo(f'Updated existing user {email} → admin=True, plan={plan}')
+        else:
+            user = User(
+                email=email,
+                first_name='Andrii',
+                last_name='Admin',
+                subscription_plan=plan,
+                is_admin=True,
+                is_active=True,
+            )
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            click.echo(f'Created admin user {email} (plan={plan})')
 
     # ── Error pages ───────────────────────────────────────────────────────
     @app.errorhandler(404)
