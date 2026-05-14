@@ -385,9 +385,10 @@
         © 2025 NIS2 Compliance Platform. Alle Rechte vorbehalten.
       </div>
       <div class="col-md-4 text-md-end" style="font-size:.8rem;">
-        <a href="#" class="me-3">Datenschutz</a>
-        <a href="#" class="me-3">Impressum</a>
-        <a href="mailto:info@nis2-compliance.de">Kontakt</a>
+        <a href="{{ url_for('legal.datenschutz') }}" class="me-3">Datenschutz</a>
+        <a href="{{ url_for('legal.impressum') }}" class="me-3">Impressum</a>
+        <a href="{{ url_for('legal.agb') }}" class="me-3">AGB</a>
+        <a href="mailto:info@andrii-it.de">Kontakt</a>
       </div>
     </div>
   </div>
