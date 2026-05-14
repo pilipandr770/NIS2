@@ -138,6 +138,23 @@
       .sidebar.open { transform: translateX(0); }
       .main-wrapper { margin-left: 0; }
     }
+
+    /* ── Help FAB ─────────────────────────────────────── */
+    #helpFab {
+      position: fixed; bottom: 90px; right: 24px; z-index: 1050;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--nis2-accent); color: #fff; border: none;
+      box-shadow: 0 4px 14px rgba(13,110,253,.45);
+      font-size: 1.3rem; display: flex; align-items: center; justify-content: center;
+      transition: transform .15s, box-shadow .15s;
+      cursor: pointer;
+    }
+    #helpFab:hover { transform: scale(1.12); box-shadow: 0 6px 18px rgba(13,110,253,.55); }
+    @keyframes helpPulse {
+      0%,100% { box-shadow: 0 4px 14px rgba(13,110,253,.45); }
+      50%      { box-shadow: 0 0 0 10px rgba(13,110,253,.15), 0 4px 14px rgba(13,110,253,.45); }
+    }
+    #helpFab.help-fab-pulse { animation: helpPulse 1.2s ease-in-out 3; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
@@ -322,7 +339,7 @@
   </div>
 
   <!-- Content -->
-  <main class="content">
+  <main class="content" data-page="{{ request.endpoint }}">
     {% block content %}{% endblock %}
   </main>
 </div>
@@ -404,5 +421,29 @@
     document.getElementById('cookieBanner').style.display = 'none';
   }
 </script>
+{% if current_user.is_authenticated %}
+<!-- ── Help Offcanvas ─────────────────────────────────────────────── -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="helpOffcanvas" style="width:390px;max-width:95vw;">
+  <div class="offcanvas-header" style="background:var(--nis2-primary);color:#fff;">
+    <h5 class="offcanvas-title mb-0" style="font-size:1rem;">
+      <i class="bi bi-question-circle-fill me-2" style="color:#60c0f0;"></i>Hilfe &amp; Erklärungen
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Schließen"></button>
+  </div>
+  <div class="offcanvas-body p-0" id="helpOffcanvasBody" style="overflow-y:auto;">
+    <div class="p-4 text-muted text-center">
+      <i class="bi bi-hourglass-split fs-3 mb-2 d-block"></i>Wird geladen…
+    </div>
+  </div>
+</div>
+
+<!-- ── Help FAB ──────────────────────────────────────────────────── -->
+<button id="helpFab" data-bs-toggle="offcanvas" data-bs-target="#helpOffcanvas"
+  aria-label="Hilfe anzeigen" title="Hilfe anzeigen">
+  <i class="bi bi-question-lg"></i>
+</button>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/help.js') }}"></script>
 </body>
 </html>
