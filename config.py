@@ -3,6 +3,7 @@ NIS2 Compliance Platform — Configuration
 """
 
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -76,6 +77,15 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+
+    # Secure session cookies (HTTPS only, no JS access, CSRF protection)
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = True
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_DURATION = timedelta(days=7)
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
 
     def __init__(self):
         required = {

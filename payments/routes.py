@@ -6,7 +6,7 @@ from flask import (Blueprint, render_template, redirect, url_for,
                    flash, request, current_app, jsonify)
 from flask_login import login_required, current_user
 
-from app.extensions import db
+from app.extensions import db, csrf
 
 payments_bp = Blueprint('payments', __name__, template_folder='../templates/payments')
 
@@ -84,6 +84,7 @@ def cancel_subscription():
 
 
 @payments_bp.route('/webhook', methods=['POST'])
+@csrf.exempt
 def stripe_webhook():
     """Stripe webhook — update subscription_plan on successful payment."""
     import stripe

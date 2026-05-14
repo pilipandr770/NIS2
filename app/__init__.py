@@ -10,7 +10,7 @@ from flask import Flask, render_template
 from sqlalchemy import text
 
 from config import config
-from app.extensions import db, login_manager, mail, csrf, migrate
+from app.extensions import db, login_manager, mail, csrf, migrate, limiter
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ def create_app(config_name: str = None) -> Flask:
     mail.init_app(app)
     csrf.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
 
     # User loader
     from app.models import User
@@ -70,6 +71,19 @@ def create_app(config_name: str = None) -> Flask:
         except Exception as exc:
             logger.warning('Monitoring scheduler not started: %s', exc)
 
+    # ── Security headers ──────────────────────────────────────────────
+    @app.after_request
+    def set_security_headers(response):
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+        if not app.debug:
+            response.headers['Strict-Transport-Security'] = (
+                'max-age=31536000; includeSubDomains'
+            )
+        return response
+
     # ── Landing / root route ──────────────────────────────────────────────
     @app.route('/')
     def index():
@@ -87,8 +101,8 @@ def create_app(config_name: str = None) -> Flask:
     import click
 
     @app.cli.command('create-admin')
-    @click.option('--email', default='pylypchukandrii770@gmail.com')
-    @click.option('--password', default='Dnepr75ok10$')
+    @click.option('--email', prompt='Admin email')
+    @click.option('--password', prompt='Admin password', hide_input=True, confirmation_prompt=True)
     @click.option('--plan', default='enterprise')
     def create_admin(email, password, plan):
         """Create or promote a user to super-admin."""

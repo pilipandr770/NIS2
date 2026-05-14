@@ -15,7 +15,7 @@ from flask import (
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_mail import Message
 
-from app.extensions import db, mail
+from app.extensions import db, mail, limiter
 from app.models import User
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ auth_bp = Blueprint('auth', __name__, template_folder='../templates/auth')
 # ── Register ──────────────────────────────────────────────────────────────────
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit('10 per hour')
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('nis2.dashboard'))
@@ -90,6 +91,7 @@ def register():
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit('20 per minute; 100 per hour')
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('nis2.dashboard'))
@@ -176,6 +178,7 @@ def resend_confirmation():
 # ── Password reset ────────────────────────────────────────────────────────────
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit('5 per hour')
 def forgot_password():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -258,6 +261,7 @@ def profile():
 # ── MFA / TOTP ────────────────────────────────────────────────────────────────
 
 @auth_bp.route('/mfa/verify', methods=['GET', 'POST'])
+@limiter.limit('10 per minute')
 def mfa_verify():
     user_id = session.get('mfa_user_id')
     if not user_id:
