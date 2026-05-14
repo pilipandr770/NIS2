@@ -59,6 +59,9 @@ def create_app(config_name: str = None) -> Flask:
     from app.admin import admin_bp
     app.register_blueprint(admin_bp, url_prefix='/superadmin')
 
+    from seo import seo_bp
+    app.register_blueprint(seo_bp)
+
     # ── NIS2 monitoring scheduler ─────────────────────────────────────────
     if not app.config.get('DISABLE_NIS2_SCHEDULER', False):
         try:
