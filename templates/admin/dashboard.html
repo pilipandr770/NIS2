@@ -9,9 +9,17 @@
       <h4 class="mb-0 fw-bold">Super-Admin Dashboard</h4>
       <small class="text-muted">Stand: {{ now.strftime('%d.%m.%Y %H:%M') }} UTC</small>
     </div>
-    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary btn-sm ms-auto">
-      <i class="bi bi-people me-1"></i>Alle Nutzer
-    </a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-people me-1"></i>Alle Nutzer
+      </a>
+      <a href="{{ url_for('admin.blog_posts') }}" class="btn btn-outline-success btn-sm">
+        <i class="bi bi-newspaper me-1"></i>Blog verwalten
+      </a>
+      <a href="{{ url_for('blog.index') }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+        <i class="bi bi-box-arrow-up-right me-1"></i>Blog ansehen
+      </a>
+    </div>
   </div>
 
   {# ── User stats ────────────────────────────────────────── #}
