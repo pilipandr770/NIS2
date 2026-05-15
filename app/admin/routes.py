@@ -127,3 +127,60 @@ def users():
         users=all_users,
         usage_map=usage_map,
     )
+
+
+# ── Blog management ───────────────────────────────────────────────
+
+@admin_bp.route('/blog')
+@login_required
+def blog_posts():
+    _require_admin()
+    from blog.models import BlogPost
+    posts = BlogPost.query.order_by(BlogPost.created_at.desc()).limit(100).all()
+    return render_template('admin/blog_posts.html', posts=posts)
+
+
+@admin_bp.route('/blog/<int:post_id>/toggle', methods=['POST'])
+@login_required
+def blog_toggle(post_id):
+    _require_admin()
+    from blog.models import BlogPost
+    from flask import redirect, url_for, flash
+    post = db.session.get(BlogPost, post_id)
+    if not post:
+        abort(404)
+    post.is_published = not post.is_published
+    if post.is_published and not post.published_at:
+        from datetime import UTC, datetime
+        post.published_at = datetime.now(UTC)
+    db.session.commit()
+    flash(f'Artikel {"veröffentlicht" if post.is_published else "zurückgezogen"}.', 'success')
+    return redirect(url_for('admin.blog_posts'))
+
+
+@admin_bp.route('/blog/trigger-news', methods=['POST'])
+@login_required
+def blog_trigger_news():
+    _require_admin()
+    from flask import redirect, url_for, flash, current_app
+    from blog.scheduler import trigger_news_now
+    try:
+        trigger_news_now(current_app._get_current_object())
+        flash('News-Job ausgeführt — prüfen Sie die Logs.', 'success')
+    except Exception as exc:
+        flash(f'Fehler: {exc}', 'danger')
+    return redirect(url_for('admin.blog_posts'))
+
+
+@admin_bp.route('/blog/trigger-evergreen', methods=['POST'])
+@login_required
+def blog_trigger_evergreen():
+    _require_admin()
+    from flask import redirect, url_for, flash, current_app
+    from blog.scheduler import trigger_evergreen_now
+    try:
+        trigger_evergreen_now(current_app._get_current_object())
+        flash('Evergreen-Job ausgeführt — prüfen Sie die Logs.', 'success')
+    except Exception as exc:
+        flash(f'Fehler: {exc}', 'danger')
+    return redirect(url_for('admin.blog_posts'))

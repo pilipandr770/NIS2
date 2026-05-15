@@ -74,7 +74,8 @@ Sitemap: {_DOMAIN}/sitemap.xml
 @seo_bp.route('/sitemap.xml')
 def sitemap():
     pages = [
-        ('/',                     '1.0', 'weekly'),
+        ('/',                     '1.0', 'daily'),
+        ('/blog/',                '0.9', 'daily'),
         ('/payments/pricing',     '0.9', 'monthly'),
         ('/auth/register',        '0.8', 'monthly'),
         ('/auth/login',           '0.7', 'monthly'),
@@ -82,6 +83,24 @@ def sitemap():
         ('/legal/agb',            '0.3', 'yearly'),
         ('/legal/datenschutz',    '0.3', 'yearly'),
     ]
+
+    # Dynamically add published blog posts
+    try:
+        from blog.models import BlogPost
+        blog_posts = (
+            BlogPost.query
+            .filter_by(is_published=True)
+            .with_entities(BlogPost.slug, BlogPost.published_at)
+            .order_by(BlogPost.published_at.desc())
+            .limit(200)
+            .all()
+        )
+        for post in blog_posts:
+            date_str = post.published_at.strftime('%Y-%m-%d') if post.published_at else _TODAY
+            pages.append((f'/blog/{post.slug}', '0.8', 'monthly'))
+    except Exception:
+        pass  # DB not available during build
+
     urls = '\n'.join(
         f"""  <url>
     <loc>{_DOMAIN}{path}</loc>
