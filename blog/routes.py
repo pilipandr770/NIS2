@@ -6,13 +6,16 @@ Blog public routes:
   GET /blog/feed.xml       → RSS 2.0 feed
 """
 
+import logging
 from datetime import UTC, datetime
 
 from flask import abort, render_template, request, make_response
 
 from blog import blog_bp
-from blog.models import BlogPost, BlogTag
+from blog.models import BlogPost, BlogTag, blog_post_tags
+from app.extensions import db
 
+logger = logging.getLogger(__name__)
 _PER_PAGE = 12
 
 
@@ -21,40 +24,46 @@ def index():
     page = request.args.get('page', 1, type=int)
     category = request.args.get('category', '')
 
-    query = BlogPost.query.filter_by(is_published=True)
-    if category in ('news', 'evergreen'):
-        query = query.filter_by(category=category)
+    try:
+        query = BlogPost.query.filter_by(is_published=True)
+        if category in ('news', 'evergreen'):
+            query = query.filter_by(category=category)
 
-    pagination = (
-        query
-        .order_by(BlogPost.published_at.desc())
-        .paginate(page=page, per_page=_PER_PAGE, error_out=False)
-    )
+        pagination = (
+            query
+            .order_by(BlogPost.published_at.desc())
+            .paginate(page=page, per_page=_PER_PAGE, error_out=False)
+        )
 
-    # Sidebar: all tags with at least one published post
-    popular_tags = (
-        BlogTag.query
-        .join(BlogTag.posts)
-        .filter(BlogPost.is_published == True)
-        .distinct()
-        .order_by(BlogTag.name)
-        .limit(30)
-        .all()
-    )
+        # Tags that have at least one published post — use subquery (.any()) instead of
+        # .join() on the relationship to stay compatible with SQLAlchemy 2.x
+        popular_tags = (
+            BlogTag.query
+            .filter(BlogTag.posts.any(BlogPost.is_published == True))
+            .order_by(BlogTag.name)
+            .limit(30)
+            .all()
+        )
 
-    # Latest 3 for sidebar "recent" widget
-    recent_posts = (
-        BlogPost.query
-        .filter_by(is_published=True)
-        .order_by(BlogPost.published_at.desc())
-        .limit(5)
-        .all()
-    )
+        recent_posts = (
+            BlogPost.query
+            .filter_by(is_published=True)
+            .order_by(BlogPost.published_at.desc())
+            .limit(5)
+            .all()
+        )
+
+    except Exception:
+        logger.exception('Blog index query failed')
+        db.session.rollback()
+        pagination = None
+        popular_tags = []
+        recent_posts = []
 
     return render_template(
         'blog/index.html',
         pagination=pagination,
-        posts=pagination.items,
+        posts=pagination.items if pagination else [],
         popular_tags=popular_tags,
         recent_posts=recent_posts,
         active_category=category,
@@ -63,38 +72,52 @@ def index():
 
 @blog_bp.route('/<slug>')
 def article(slug):
-    post = BlogPost.query.filter_by(slug=slug, is_published=True).first_or_404()
+    try:
+        post = BlogPost.query.filter_by(slug=slug, is_published=True).first_or_404()
 
-    # Related: same tags, exclude self, max 3
-    related = []
-    if post.tags:
-        tag_ids = [t.id for t in post.tags]
-        related = (
-            BlogPost.query
-            .filter(
-                BlogPost.is_published == True,
-                BlogPost.id != post.id,
-                BlogPost.tags.any(BlogTag.id.in_(tag_ids)),
+        # Related: same tags, exclude self, max 3
+        related = []
+        if post.tags:
+            tag_ids = [t.id for t in post.tags]
+            related = (
+                BlogPost.query
+                .filter(
+                    BlogPost.is_published == True,
+                    BlogPost.id != post.id,
+                    BlogPost.tags.any(BlogTag.id.in_(tag_ids)),
+                )
+                .order_by(BlogPost.published_at.desc())
+                .limit(3)
+                .all()
             )
-            .order_by(BlogPost.published_at.desc())
-            .limit(3)
-            .all()
-        )
+    except Exception:
+        logger.exception('Blog article query failed for slug=%s', slug)
+        db.session.rollback()
+        abort(500)
 
     return render_template('blog/article.html', post=post, related=related)
 
 
 @blog_bp.route('/tag/<tag_slug>')
 def tag(tag_slug):
-    blog_tag = BlogTag.query.filter_by(slug=tag_slug).first_or_404()
-    page = request.args.get('page', 1, type=int)
+    try:
+        blog_tag = BlogTag.query.filter_by(slug=tag_slug).first_or_404()
+        page = request.args.get('page', 1, type=int)
 
-    pagination = (
-        blog_tag.posts
-        .filter(BlogPost.is_published == True)
-        .order_by(BlogPost.published_at.desc())
-        .paginate(page=page, per_page=_PER_PAGE, error_out=False)
-    )
+        # Use BlogPost.query with .any() subquery — avoids lazy='dynamic' requirement
+        pagination = (
+            BlogPost.query
+            .filter(
+                BlogPost.is_published == True,
+                BlogPost.tags.any(BlogTag.id == blog_tag.id),
+            )
+            .order_by(BlogPost.published_at.desc())
+            .paginate(page=page, per_page=_PER_PAGE, error_out=False)
+        )
+    except Exception:
+        logger.exception('Blog tag query failed for slug=%s', tag_slug)
+        db.session.rollback()
+        abort(500)
 
     return render_template(
         'blog/tag.html',
@@ -106,13 +129,18 @@ def tag(tag_slug):
 
 @blog_bp.route('/feed.xml')
 def feed():
-    posts = (
-        BlogPost.query
-        .filter_by(is_published=True)
-        .order_by(BlogPost.published_at.desc())
-        .limit(20)
-        .all()
-    )
+    try:
+        posts = (
+            BlogPost.query
+            .filter_by(is_published=True)
+            .order_by(BlogPost.published_at.desc())
+            .limit(20)
+            .all()
+        )
+    except Exception:
+        logger.exception('Blog feed query failed')
+        db.session.rollback()
+        posts = []
 
     now_rfc = _rfc2822(datetime.now(UTC))
 

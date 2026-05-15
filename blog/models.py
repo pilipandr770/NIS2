@@ -29,7 +29,7 @@ class BlogTag(db.Model):
         'BlogPost',
         secondary=blog_post_tags,
         back_populates='tags',
-        lazy='dynamic',
+        lazy='select',
     )
 
     def __repr__(self):
