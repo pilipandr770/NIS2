@@ -4,22 +4,33 @@ Blog models — BlogPost, BlogTag.
 Imported by blog/__init__.py so Flask-Migrate discovers them.
 """
 
+import os
 from datetime import UTC, datetime
 
 from app.extensions import db
 
+# Mirror the schema convention used by all other models in this project.
+# On Render, DB_SCHEMA=nis2_compliance; locally it is unset → public schema.
+SCHEMA = os.environ.get('DB_SCHEMA') or None
+
+_fk_prefix = f'{SCHEMA}.' if SCHEMA else ''
+
 # ── Association table ─────────────────────────────────────────────────────────
 blog_post_tags = db.Table(
     'blog_post_tags',
-    db.Column('post_id', db.Integer, db.ForeignKey('blog_posts.id', ondelete='CASCADE'),
+    db.Column('post_id', db.Integer,
+              db.ForeignKey(f'{_fk_prefix}blog_posts.id', ondelete='CASCADE'),
               primary_key=True),
-    db.Column('tag_id',  db.Integer, db.ForeignKey('blog_tags.id',  ondelete='CASCADE'),
+    db.Column('tag_id', db.Integer,
+              db.ForeignKey(f'{_fk_prefix}blog_tags.id', ondelete='CASCADE'),
               primary_key=True),
+    **(({'schema': SCHEMA}) if SCHEMA else {}),
 )
 
 
 class BlogTag(db.Model):
     __tablename__ = 'blog_tags'
+    __table_args__ = ({'schema': SCHEMA} if SCHEMA else {})
 
     id   = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(60),  unique=True, nullable=False)
@@ -38,6 +49,7 @@ class BlogTag(db.Model):
 
 class BlogPost(db.Model):
     __tablename__ = 'blog_posts'
+    __table_args__ = ({'schema': SCHEMA} if SCHEMA else {})
 
     id               = db.Column(db.Integer, primary_key=True)
     slug             = db.Column(db.String(220), unique=True, nullable=False, index=True)
