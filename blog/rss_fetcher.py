@@ -34,9 +34,17 @@ SOURCES = [
         'format': 'rss',
     },
     {
-        'name': 'BSI CERT-Bund',
+        # BSI moved their old RSS URL. Use Heise Security (German, reliable).
+        'name': 'Heise Security',
+        'url':  'https://www.heise.de/security/news-atom.xml',
+        'lang': 'de',
+        'format': 'atom',
+    },
+    {
+        # BSI Sicherheitshinweise — new URL after BSI site redesign
+        'name': 'BSI Sicherheitshinweise',
         'url':  'https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/'
-                'RSSNewsfeed/RSSNewsfeed_Warnmeldungen.xml',
+                'RSSNewsfeed/RSSNewsfeed_Sicherheitshinweise.xml',
         'lang': 'de',
         'format': 'rss',
     },
