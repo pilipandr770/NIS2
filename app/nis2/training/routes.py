@@ -107,13 +107,282 @@ Als Mitarbeiter einer NIS2-regulierten Organisation sind Sie verpflichtet:
 §30 Abs. 2 Nr. 7 BSIG — Schulungen zur Cyberhygiene.""",
 }
 
-DEFAULT_CONTENT['ransomware'] = DEFAULT_CONTENT['general']
-DEFAULT_CONTENT['data_protection'] = DEFAULT_CONTENT['general']
-DEFAULT_CONTENT['remote_work'] = DEFAULT_CONTENT['general']
-DEFAULT_CONTENT['social_media'] = DEFAULT_CONTENT['general']
-DEFAULT_CONTENT['incident'] = DEFAULT_CONTENT['general']
-DEFAULT_CONTENT['access_control'] = DEFAULT_CONTENT['passwords']
-DEFAULT_CONTENT['cloud_security'] = DEFAULT_CONTENT['general']
+DEFAULT_CONTENT['ransomware'] = """## Ransomware & Malware — Pflichtunterweisung
+
+### Was ist Ransomware?
+Ransomware ist Schadsoftware, die Ihre Dateien verschlüsselt und Lösegeld fordert.
+Angriffe kosteten deutsche Unternehmen 2024 durchschnittlich **1,1 Mio. €** — inklusive Ausfallzeiten,
+Wiederherstellung und Reputationsschaden (BSI Lagebericht 2024).
+
+### Wie gelangt Ransomware ins Unternehmen?
+1. **Phishing-E-Mails** mit infizierten Anhängen (PDF, Word, ZIP)
+2. **Kompromittierte Websites** (Drive-by-Download)
+3. **RDP / VPN-Schwachstellen** — Angreifer nutzen schwache Passwörter
+4. **Infizierte USB-Sticks** oder externe Laufwerke
+5. **Software-Downloads** aus unseriösen Quellen
+
+### Warnsignale eines laufenden Angriffs
+- Ungewöhnlich hohe CPU- / Festplatten-Auslastung
+- Dateien können nicht geöffnet werden oder haben unbekannte Endungen (.locked, .crypt)
+- Verschlüsselungshinweis erscheint auf dem Bildschirm (README.txt, DECRYPT.html)
+- Netzwerklaufwerke sind plötzlich nicht mehr erreichbar
+
+### Sofortmaßnahmen bei Verdacht
+1. **Gerät sofort vom Netzwerk trennen** (Ethernet-Kabel ziehen, WLAN deaktivieren)
+2. Gerät **nicht ausschalten** — Forensikdaten können im RAM liegen
+3. Sofort die **IT-Sicherheit / Notfallnummer** informieren
+4. **Kein Lösegeld zahlen** ohne Rücksprache mit der Geschäftsleitung und BSI
+5. BSI-Meldepflicht prüfen (§32 BSIG: Frühwarnung innerhalb 24h)
+
+### Schutzmaßnahmen (Ihr Beitrag)
+- Keine unbekannten USB-Sticks anschließen
+- Software nur aus genehmigten Quellen installieren
+- Verdächtige E-Mails nicht öffnen — an IT melden
+- Regelmäßige Backups sichern Ihre Daten auch ohne Lösegeld
+
+### Rechtsgrundlage
+§30 Abs. 2 Nr. 2 BSIG (Incident Response), Nr. 7 (Schulung), §32 BSIG (BSI-Meldepflicht)."""
+
+DEFAULT_CONTENT['data_protection'] = """## Datenschutz & DSGVO — Pflichtunterweisung
+
+### Warum Datenschutz?
+Als NIS2-Einrichtung verarbeiten Sie personenbezogene Daten (DSGVO Art. 4).
+Datenschutzverletzungen können zu **Bußgeldern bis 20 Mio. € oder 4 % des Jahresumsatzes**
+führen — zusätzlich zu NIS2-Sanktionen.
+
+### Was sind personenbezogene Daten?
+Alle Informationen, die eine natürliche Person direkt oder indirekt identifizierbar machen:
+- Name, Adresse, E-Mail, Telefonnummer
+- IP-Adressen, Cookie-IDs, Standortdaten
+- Gesundheitsdaten, Bankverbindungen (besonders schützenswert)
+- Mitarbeiterdaten (Gehalt, Krankheit, Leistungsbeurteilung)
+
+### Ihre Pflichten im Arbeitsalltag
+| Situation | Richtig | Falsch |
+|---|---|---|
+| Kundendaten weitergeben | Nur mit Erlaubnis / Vertrag | Per WhatsApp an Kollegen |
+| E-Mails mit personenbezogenen Daten | Verschlüsseln (S/MIME) | Unverschlüsselt senden |
+| Daten nicht mehr benötigt | Sicher löschen (Schredder / sicheres Löschen) | In Papierkorb legen |
+| Anfrage auf Datenlöschung | An Datenschutzbeauftragten weiterleiten | Selbst entscheiden |
+| Datenpanne entdeckt | Sofort IT-Sicherheit informieren | Erst mal abwarten |
+
+### DSGVO Art. 33 — Meldepflicht bei Datenpannen
+Bei einer Datenschutzverletzung (unbefugter Zugriff, Verlust, Diebstahl) gilt:
+- Intern melden: **sofort** an IT-Sicherheit / Datenschutzbeauftragten
+- Behörde informieren: Datenschutzbehörde innerhalb **72 Stunden**
+- Betroffene informieren: Wenn hohes Risiko für die Person besteht
+
+### Verzeichnis von Verarbeitungstätigkeiten (VVT)
+Jede Datenverarbeitung muss dokumentiert sein. Sprechen Sie mit dem Datenschutzbeauftragten,
+wenn Sie neue Prozesse mit personenbezogenen Daten einführen wollen.
+
+### Rechtsgrundlage
+DSGVO Art. 5, 13, 32, 33 | §30 Abs. 2 Nr. 7 BSIG (Schulungspflicht)."""
+
+DEFAULT_CONTENT['remote_work'] = """## Sicheres Homeoffice & VPN — Pflichtunterweisung
+
+### Homeoffice-Risiken
+Im Homeoffice fehlen Schutzmechanismen des Firmennetzwerks (Firewall, IDS, NAC).
+Das macht Remote-Arbeitsplätze zu einem bevorzugten Angriffsziel.
+
+### Grundregeln im Homeoffice
+
+**Netzwerk & Verbindung**
+- Immer über das **Firmen-VPN** arbeiten — kein direkter Internetzugang zu Firmensystemen
+- Nur das **eigene (gesicherte) WLAN** verwenden — kein öffentliches WLAN (Café, Bahn, Hotel)
+- Wenn öffentliches WLAN unvermeidbar: zusätzlich VPN aktiv lassen
+- Router-Passwort geändert? Standard-Passwörter sind bekannte Angriffsziele
+
+**Geräte**
+- Nur **vom Unternehmen genehmigte Geräte** für Arbeit verwenden
+- Kein Mischen von privaten und beruflichen Aktivitäten auf einem Gerät
+- Betriebssystem und Software aktuell halten (automatische Updates aktivieren)
+- Bildschirm sperren beim Verlassen — auch im eigenen Zuhause (Kinder, Besuch)
+
+**Daten & Dokumente**
+- Keine Firmendaten auf privaten Cloud-Diensten (Dropbox, iCloud, Google Drive)
+- Ausgedruckte Dokumente sicher aufbewahren und schreddern
+- Vertrauliche Meetings: Tür schließen, kein Mithören durch Dritte
+
+**Videokonferenzen**
+- Hintergrund prüfen (keine vertraulichen Infos sichtbar)
+- Unbeteiligte Personen nicht im Bild
+- Genehmigtes Tool verwenden (Teams, Webex — kein privates Zoom ohne Freigabe)
+
+### Was tun bei Sicherheitsproblemen im Homeoffice?
+1. IT-Sicherheit / Helpdesk kontaktieren (Nummer im Intranet)
+2. Gerät vom Netzwerk trennen wenn Infekt vermutet wird
+3. Vorfall dokumentieren
+
+### Rechtsgrundlage
+§30 Abs. 2 Nr. 7, 10 BSIG | BSI-Empfehlungen für Homeoffice (BSI-Leitfaden)."""
+
+DEFAULT_CONTENT['social_media'] = """## Social Media & OSINT-Risiken — Pflichtunterweisung
+
+### Social Media als Angriffsfläche
+Angreifer nutzen öffentlich verfügbare Informationen (OSINT — Open Source Intelligence),
+um gezielte Angriffe zu planen. **LinkedIn, Xing, Facebook, Instagram** sind Goldminen für:
+- Organigramme (wer ist wofür zuständig?)
+- Technologie-Stack (welche Systeme werden genutzt?)
+- Mitarbeiter-Namen für Phishing-Angriffe ("Ihr Kollege Hans Meier bat mich...")
+- Urlaubszeiten für gezielte Angriffe bei geringer Besetzung
+
+### Vishing & Pretexting
+"Vishing" = Voice-Phishing per Telefon. Angreifer rufen an als:
+- IT-Support ("Ich brauche Ihr Passwort zur Fehlersuche")
+- BSI-Mitarbeiter ("NIS2-Prüfung — senden Sie uns Ihre Zugangsdaten")
+- Vorgesetzter (Stimme gefälscht per AI-Deepfake)
+
+**Regel**: Kein legitimes Unternehmen oder Behörde fragt telefonisch nach Passwörtern.
+
+### Was Sie im Umgang mit Social Media beachten müssen
+
+**Beruflich**
+- Keine Infos über interne Systeme, Projekte oder Kunden posten
+- Keine Fotos aus dem Büro mit sichtbaren Bildschirmen / Whiteboards
+- Keine Organigramme oder Prozessdiagramme öffentlich teilen
+- Job-Ausschreibungen verraten Technologien — prüfen Sie, was nötig ist
+
+**Privat (mit Auswirkung auf die Firma)**
+- Eindeutige Assoziation mit dem Arbeitgeber = erhöhte Angriffsfläche
+- Urlaubsankündigungen = Information für Angreifer
+
+### Vorfälle melden
+Social Engineering-Versuche (Anrufe, Nachrichten, ungewöhnliche Kontaktanfragen)
+gehören an die IT-Sicherheit gemeldet — auch wenn nichts passiert ist.
+Diese Informationen helfen, gezielte Angriffskampagnen zu erkennen.
+
+### Rechtsgrundlage
+§30 Abs. 2 Nr. 7 BSIG | BSI-Grundschutz ORP.3 (Sensibilisierung und Schulung)."""
+
+DEFAULT_CONTENT['incident'] = """## Vorfallmeldung & Notfallprozesse — Pflichtunterweisung
+
+### Was ist ein Sicherheitsvorfall?
+Ein Sicherheitsvorfall (Incident) ist jedes Ereignis, das die **Vertraulichkeit, Integrität
+oder Verfügbarkeit** von IT-Systemen oder Daten beeinträchtigt oder beeinträchtigen könnte:
+
+| Schweregrad | Beispiele |
+|---|---|
+| **Kritisch** | Ransomware, Datenleck mit personenbezogenen Daten, Totalausfall kritischer Systeme |
+| **Hoch** | Unauthorisierter Zugriff auf Systeme, Datei-Exfiltration entdeckt |
+| **Mittel** | Phishing-Mail geöffnet + Link geklickt, verdächtige Anmeldung |
+| **Niedrig** | Spam-Kampagne, Passwort-Reset ohne Eigeninitiative |
+
+### Ihr Meldeweg — Was tun bei einem Vorfall?
+
+**Schritt 1 — Sofortmaßnahme (erste 5 Minuten)**
+- Ruhe bewahren, nicht selbst versuchen zu "reparieren"
+- Gerät vom Netzwerk trennen, wenn Infekt vermutet wird
+- Alles dokumentieren: Was haben Sie gesehen? Wann? Welches Gerät?
+
+**Schritt 2 — Melden (erste 30 Minuten)**
+- **Interne Notfallnummer** anrufen (im Intranet / Aushang)
+- E-Mail an it-security@[ihr-unternehmen].de mit Kurzbeurteilung
+- Vorgesetzten informieren
+
+**Schritt 3 — Nicht tun**
+- Gerät nicht ausschalten (Forensik-Beweise gehen verloren)
+- Keine Dateien löschen oder verschieben
+- Keine Screenshots teilen (Datenschutz)
+- Nicht mit Dritten über den Vorfall sprechen (interne Kommunikation zuerst)
+
+### BSI-Meldepflichten nach §32 BSIG (für Ihre IT-Abteilung)
+Als NIS2-Einrichtung gelten gesetzliche Fristen nach Entdeckung eines erheblichen Vorfalls:
+- **24 Stunden**: Frühwarnung an BSI
+- **72 Stunden**: Erste Meldung mit Bewertung
+- **30 Tage**: Abschlussbericht
+
+**Sie als Mitarbeiter müssen sofort intern melden** — die IT-Sicherheit übernimmt die BSI-Kommunikation.
+
+### Rechtsgrundlage
+§30 Abs. 2 Nr. 2 BSIG (Incident Response) | §32 BSIG (BSI-Meldepflicht) | §30 Nr. 7 (Schulung)."""
+
+DEFAULT_CONTENT['access_control'] = """## Zugangskontrolle & Berechtigungen — Pflichtunterweisung
+
+### Warum Zugangskontrolle?
+Das **Prinzip der minimalen Rechte** (Least Privilege) besagt: Jeder Mitarbeiter erhält nur
+die Zugriffsrechte, die er für seine Arbeit tatsächlich braucht — nicht mehr.
+
+Insider-Bedrohungen (absichtlich oder versehentlich) verursachen **34 % aller Datenpannen**
+(Verizon DBIR 2024). Zu weit gefasste Rechte verstärken jeden Schaden.
+
+### Ihre Zugriffsrechte — Grundregeln
+
+**Anfordern und Freigeben**
+- Neue Zugriffsrechte immer über das offizielle Berechtigungsformular anfordern
+- Genehmigung durch Vorgesetzten erforderlich — kein informelles "Kurz mal einloggen"
+- Temporäre Zugriffsrechte nach Ende des Projekts zurückgeben
+
+**Konten & Passwörter**
+- **Keine Account-Weitergabe** — jede Person hat ihr eigenes Konto
+- Vertretungsregelungen über HR/IT einrichten — nicht über Passwort-Weitergabe
+- Verdächtige Anmeldungen (ungewöhnliche Zeiten, Orte) sofort melden
+
+**Privilegierte Konten (Admin)**
+- Admin-Rechte nur für konkrete Aufgaben verwenden — danach abmelden
+- Kein Surfen oder E-Mails lesen mit Admin-Account
+- Jede Admin-Aktion ist protokolliert
+
+**Beim Ausscheiden von Kollegen**
+- IT-Sicherheit sofort informieren — Zugangsrechte werden deaktiviert
+- Gemeinsam genutzte Passwörter (falls unvermeidbar) sofort ändern
+
+### Zugriffsüberprüfungen
+Mindestens **einmal jährlich** überprüft die IT-Abteilung alle Berechtigungen.
+Wenn Sie von einer solchen Prüfung kontaktiert werden — antworten Sie zeitnah.
+Nicht mehr benötigte Zugriffsrechte werden entfernt.
+
+### MFA — Pflicht für kritische Systeme
+- Remote Access (VPN, RDP): MFA immer aktiv
+- Cloud-Dienste (Microsoft 365, Google): MFA aktivieren
+- Finanz- und HR-Systeme: MFA Pflicht
+
+### Rechtsgrundlage
+§30 Abs. 2 Nr. 9 BSIG (Zugangskontrolle) | Nr. 10 (MFA) | Nr. 7 (Schulung)."""
+
+DEFAULT_CONTENT['cloud_security'] = """## Cloud-Sicherheit — Pflichtunterweisung
+
+### Cloud-Nutzung im Unternehmen
+Cloud-Dienste bieten Flexibilität, schaffen aber neue Risiken.
+Als NIS2-Einrichtung sind wir für die **Sicherheit unserer Cloud-Umgebung mitverantwortlich**
+(Shared Responsibility Model).
+
+### Was ist das Shared Responsibility Model?
+| Bereich | Cloud-Anbieter | Ihr Unternehmen |
+|---|---|---|
+| Physische Infrastruktur | ✅ Verantwortung | — |
+| Netzwerk / Hypervisor | ✅ Verantwortung | — |
+| Betriebssystem (IaaS) | Teilweise | ✅ Verantwortung |
+| Anwendungen | — | ✅ Verantwortung |
+| **Daten & Identitäten** | — | ✅ **Vollständig Ihre Verantwortung** |
+
+**Fazit**: Datenverlust durch Fehlkonfiguration oder gestohlene Zugangsdaten liegt bei Ihnen.
+
+### Häufige Cloud-Sicherheitsfehler (die Sie vermeiden können)
+
+**Shadow IT — Verbotene Cloud-Nutzung**
+- Keine privaten Konten für Firmendaten verwenden (iCloud, Google Drive privat)
+- Keine nicht genehmigten SaaS-Tools für Projektarbeit (Trello privat, Notion privat)
+- Neue Cloud-Dienste immer über IT-Sicherheit freigeben lassen
+
+**Zugangsdaten schützen**
+- Cloud-Zugangsdaten nie in Code-Repositories (GitHub!) einchecken
+- API-Keys und Secrets in Passwort-Manager oder Secret Manager speichern
+- MFA für alle Cloud-Dienste aktivieren
+
+**Fehlkonfigurationen**
+- Keine öffentlichen S3-Buckets / Blob-Storage ohne explizite Freigabe
+- Shared-Links für Dokumente: Zeitlimit setzen und nur an konkrete Empfänger
+
+### Genehmigte Cloud-Dienste (Beispiele)
+Nutzen Sie **nur** die von der IT freigegebenen Dienste. Im Zweifelsfall fragen Sie nach.
+
+### Datenspeicherort (DSGVO)
+EU-Datenschutzrecht erfordert, dass personenbezogene Daten bevorzugt in der EU gespeichert werden.
+Prüfen Sie bei neuen Diensten, wo Daten verarbeitet werden (Datenschutzerklärung des Anbieters).
+
+### Rechtsgrundlage
+§30 Abs. 2 Nr. 4 BSIG (Supply Chain / Cloud-Anbieter) | Nr. 7 (Schulung) | DSGVO Art. 28 (AVV)."""
 
 
 def register_training_routes(bp):

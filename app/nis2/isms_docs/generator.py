@@ -608,12 +608,27 @@ class ISMSDocumentGenerator:
             if not api_key:
                 return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
             client = anthropic.Anthropic(api_key=api_key)
+
             company_name = context.get('company_name', 'Ihr Unternehmen')
             today_str = date.today().strftime('%d.%m.%Y')
             next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
+
+            # System prompt — cached (invariant across all document generations)
+            system_prompt = (
+                'Du bist ein erfahrener ISMS-Berater und zertifizierter Compliance-Experte '
+                'mit Spezialisierung auf NIS2UmsuCG (NIS2-Umsetzungsgesetz Deutschland, seit 6. Dez. 2025), '
+                'BSI IT-Grundschutz (BSI 200-1/2/3), ISO/IEC 27001:2022 und DSGVO.\n\n'
+                'Du erstellst vollständige, professionelle Compliance-Dokumente auf Deutsch. '
+                'Deine Dokumente sind:\n'
+                '- Sofort einsetzbar (keine Platzhalter wie [NAME] außer wenn explizit gewünscht)\n'
+                '- Rechtlich korrekt mit Bezug auf aktuelle BSIG-Paragraphen\n'
+                '- Unternehmensindividuell auf Basis der gegebenen Daten\n'
+                '- Im Markdown-Format mit klarer Kapitelstruktur\n'
+                '- Mindestens 1500 Wörter für Kerndokumente\n\n'
+                'Verwende immer die aktuellen Paragraphen des NIS2UmsuCG (§30, §32, §33, §38, §39 BSIG).'
+            )
+
             user_message = (
-                'Du bist ein erfahrener ISMS-Berater und Compliance-Experte '
-                'mit Spezialisierung auf NIS2UmsuCG und BSI-Standards.\n\n'
                 'Verbindliche Qualitätsregeln (ohne Ausnahmen):\n'
                 f'- Verwende den Unternehmensnamen exakt: {company_name}\n'
                 f'- Verwende konkrete Daten: Erstellt am {today_str}, Gültig ab {today_str}, nächste Überprüfung {next_review_str}\n'
@@ -622,15 +637,31 @@ class ISMSDocumentGenerator:
                 '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
                 + prompt
             )
-            with client.messages.stream(
+
+            message = client.messages.create(
                 model=self.MODEL,
-                max_tokens=4096,
-                temperature=0.2,
-                messages=[{'role': 'user', 'content': user_message}],
-            ) as stream:
-                content = stream.get_final_text()
-                usage = stream.get_final_message().usage
-            _log_usage(self.MODEL, 'isms_doc', usage.input_tokens, usage.output_tokens)
+                max_tokens=8192,  # ISMS-Dokumente benötigen oft 2000-5000 Wörter
+                system=[
+                    {
+                        'type': 'text',
+                        'text': system_prompt,
+                        'cache_control': {'type': 'ephemeral'},  # Prompt caching
+                    }
+                ],
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': user_message,
+                    }
+                ],
+            )
+            content = message.content[0].text if message.content else ''
+            _log_usage(
+                self.MODEL,
+                'isms_doc',
+                message.usage.input_tokens if message.usage else 0,
+                message.usage.output_tokens if message.usage else 0,
+            )
             content = _sanitize_generated_content(content, context)
             return content, None
 
