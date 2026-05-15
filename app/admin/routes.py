@@ -161,26 +161,44 @@ def blog_toggle(post_id):
 @admin_bp.route('/blog/trigger-news', methods=['POST'])
 @login_required
 def blog_trigger_news():
+    """Start news-fetch job in a background thread and return immediately.
+
+    The Anthropic API call takes 30-120 s — running it synchronously kills
+    the gunicorn worker (timeout).  We fire-and-forget into a daemon thread
+    instead; the result appears in the blog list after a few seconds.
+    """
     _require_admin()
+    import threading
     from flask import redirect, url_for, flash, current_app
-    from blog.scheduler import trigger_news_now
-    try:
-        trigger_news_now(current_app._get_current_object())
-        flash('News-Job ausgeführt — prüfen Sie die Logs.', 'success')
-    except Exception as exc:
-        flash(f'Fehler: {exc}', 'danger')
+    app = current_app._get_current_object()
+
+    def _run():
+        from blog.scheduler import trigger_news_now
+        trigger_news_now(app)
+
+    threading.Thread(target=_run, daemon=True).start()
+    flash('News-Job gestartet — Artikel erscheint in ~60 Sekunden in der Liste.', 'info')
     return redirect(url_for('admin.blog_posts'))
 
 
 @admin_bp.route('/blog/trigger-evergreen', methods=['POST'])
 @login_required
 def blog_trigger_evergreen():
+    """Start evergreen-generation job in a background thread and return immediately.
+
+    Generating a full 1200-word article via Anthropic takes 30-120 s — too
+    long for a synchronous HTTP request.  We fire-and-forget into a daemon
+    thread; the new article shows up in the list once it finishes.
+    """
     _require_admin()
+    import threading
     from flask import redirect, url_for, flash, current_app
-    from blog.scheduler import trigger_evergreen_now
-    try:
-        trigger_evergreen_now(current_app._get_current_object())
-        flash('Evergreen-Job ausgeführt — prüfen Sie die Logs.', 'success')
-    except Exception as exc:
-        flash(f'Fehler: {exc}', 'danger')
+    app = current_app._get_current_object()
+
+    def _run():
+        from blog.scheduler import trigger_evergreen_now
+        trigger_evergreen_now(app)
+
+    threading.Thread(target=_run, daemon=True).start()
+    flash('Evergreen-Artikel wird generiert — erscheint in ~60–90 Sekunden in der Liste.', 'info')
     return redirect(url_for('admin.blog_posts'))
