@@ -70,6 +70,18 @@ class Config:
     # ── Site URL ──────────────────────────────────────────────────────────
     BASE_URL = os.environ.get('SITE_BASE_URL', 'https://nis2-compliance.de')
 
+    # ── Input size limits (buffer-overflow / DoS protection) ─────────────
+    # Flask aborts with 413 Request Entity Too Large if body exceeds this.
+    # 2 MB covers the largest legitimate form (ISMS doc ~500 KB markdown).
+    # File uploads go through the same limit — CSV imports are small.
+    MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MB
+
+    # Maximum characters accepted for any free-text / Text column field.
+    # Enforced at the Python layer (before the DB even sees the data).
+    MAX_TEXT_FIELD    = 100_000   # 100 KB — generous for an ISMS document
+    MAX_STRING_FIELD  = 1_000     # 1 KB — ample for names, titles, slugs
+    MAX_FILE_BYTES    = 1 * 1024 * 1024  # 1 MB — CSV import hard limit
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

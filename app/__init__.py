@@ -167,6 +167,12 @@ def create_app(config_name: str = None) -> Flask:
     def method_not_allowed(e):
         return render_template('errors/405.html'), 405
 
+    @app.errorhandler(413)
+    def request_too_large(e):
+        # Triggered by MAX_CONTENT_LENGTH — the Flask equivalent of a
+        # "buffer overrun detected" error: request body exceeded allowed size.
+        return render_template('errors/413.html'), 413
+
     @app.errorhandler(500)
     def server_error(e):
         return render_template('errors/500.html'), 500

@@ -82,6 +82,13 @@ def register_supply_chain_routes(bp):
             flash('Bitte eine CSV-Datei hochladen.', 'error')
             return redirect(url_for('nis2.supply_chain_dashboard'))
 
+        # Size check BEFORE reading into memory — prevents heap-DoS via
+        # oversized upload (Python equivalent of buffer-overflow via file I/O)
+        from app.input_guard import check_file_size
+        if not check_file_size(file, abort_on_exceed=False):
+            flash('CSV-Datei zu groß (max. 1 MB).', 'error')
+            return redirect(url_for('nis2.supply_chain_dashboard'))
+
         content = file.read().decode('utf-8-sig')
         reader = csv.DictReader(io.StringIO(content))
         imported = 0

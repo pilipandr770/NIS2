@@ -31,12 +31,16 @@ def register():
         return redirect(url_for('nis2.dashboard'))
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
-        password2 = request.form.get('password2', '')
-        company = request.form.get('company_name', '').strip()
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
+        from app.input_guard import trunc
+        # Truncate all string inputs to DB column sizes before any processing.
+        # Prevents heap-DoS via oversized form payloads (Python equivalent of
+        # buffer-overflow protection — no raw memory, but same DoS effect).
+        email      = trunc(request.form.get('email', '').lower(), 120, field='email')
+        password   = request.form.get('password', '')[:128]   # bcrypt ignores >72 chars anyway
+        password2  = request.form.get('password2', '')[:128]
+        company    = trunc(request.form.get('company_name', ''), 200, field='company_name')
+        first_name = trunc(request.form.get('first_name', ''),  100, field='first_name')
+        last_name  = trunc(request.form.get('last_name', ''),   100, field='last_name')
 
         # Validation
         if not email or not password:

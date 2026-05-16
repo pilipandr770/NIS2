@@ -69,14 +69,16 @@ def register_incident_routes(bp):
             detected_at = _parse_dt(detected_str) or datetime.now(UTC)
             occurred_at = _parse_dt(occurred_str)
 
+            from app.input_guard import trunc, trunc_text
             incident = Incident(
                 user_id=current_user.id,
-                title=request.form['title'],
-                category=request.form['category'],
-                severity=request.form.get('severity', 'medium'),
-                description=request.form.get('description', ''),
-                affected_systems=request.form.get('affected_systems', ''),
-                affected_data=request.form.get('affected_data', ''),
+                title=trunc(request.form.get('title', ''),    300, field='title'),
+                category=trunc(request.form.get('category', ''), 50, field='category'),
+                severity=trunc(request.form.get('severity', 'medium'), 20, field='severity'),
+                # Text columns: generous limit (100 KB) but not unlimited
+                description=trunc_text(request.form.get('description', ''),      field='description'),
+                affected_systems=trunc_text(request.form.get('affected_systems', ''), field='affected_systems'),
+                affected_data=trunc_text(request.form.get('affected_data', ''),   field='affected_data'),
                 detected_at=detected_at,
                 occurred_at=occurred_at,
             )
