@@ -58,14 +58,15 @@ def register_monitoring_routes(bp):
                 flash(f'Domain „{domain}" wird bereits überwacht.', 'warning')
                 return redirect(url_for('nis2.monitoring_dashboard'))
 
+            from app.input_guard import trunc
             target = MonitoringTarget(
                 user_id=current_user.id,
                 domain=domain,
-                label=request.form.get('label', '').strip() or domain,
-                scan_frequency=request.form.get('scan_frequency', 'monthly'),
+                label=trunc(request.form.get('label', '') or domain, 200, field='label'),
+                scan_frequency=trunc(request.form.get('scan_frequency', 'monthly'), 20),
                 alert_on_degradation=request.form.get('alert_on_degradation') in ('on', '1'),
                 alert_threshold=float(request.form.get('alert_threshold', 10)),
-                alert_email=request.form.get('alert_email', '').strip() or current_user.email,
+                alert_email=trunc(request.form.get('alert_email', '') or current_user.email, 120, field='alert_email'),
                 next_scan_at=datetime.now(UTC),   # scan immediately on first add
             )
             db.session.add(target)
@@ -167,7 +168,10 @@ def register_monitoring_routes(bp):
             diff=diff,
             user=current_user,
         )
-        filename = f"security-report_{scan.target.domain}_{scan.scanned_at.strftime('%Y%m%d_%H%M')}.html"
+        # Path-traversal fix: strip any chars that could escape the filename
+        import re as _re
+        safe_domain = _re.sub(r'[^\w\-.]', '_', scan.target.domain)[:60]
+        filename = f"security-report_{safe_domain}_{scan.scanned_at.strftime('%Y%m%d_%H%M')}.html"
         response = make_response(html)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'

@@ -243,12 +243,13 @@ def reset_password(token):
 @login_required
 def profile():
     if request.method == 'POST':
-        current_user.first_name = request.form.get('first_name', '').strip()
-        current_user.last_name = request.form.get('last_name', '').strip()
-        current_user.company_name = request.form.get('company_name', '').strip()
-        current_user.phone = request.form.get('phone', '').strip()
+        from app.input_guard import trunc
+        current_user.first_name  = trunc(request.form.get('first_name', ''),  100, field='first_name')
+        current_user.last_name   = trunc(request.form.get('last_name', ''),   100, field='last_name')
+        current_user.company_name = trunc(request.form.get('company_name', ''), 200, field='company_name')
+        current_user.phone       = trunc(request.form.get('phone', ''),        50,  field='phone')
 
-        new_password = request.form.get('new_password', '')
+        new_password = request.form.get('new_password', '')[:128]
         if new_password:
             if len(new_password) < 8:
                 flash('Neues Passwort muss mindestens 8 Zeichen lang sein.', 'danger')

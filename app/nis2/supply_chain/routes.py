@@ -16,7 +16,7 @@ from flask import (abort, flash, jsonify, redirect, render_template,
 from services.security_helpers import require_plan
 from flask_login import current_user, login_required
 
-from app.extensions import db
+from app.extensions import db, limiter
 from ..models import Supplier, SupplierAssessment, SUPPLIER_CATEGORIES
 
 logger = logging.getLogger(__name__)
@@ -47,22 +47,24 @@ def register_supply_chain_routes(bp):
     @bp.route('/supply-chain/add', methods=['GET', 'POST'])
     @login_required
     @require_plan("professional")
+    @limiter.limit('60 per hour', methods=['POST'])
     def supply_chain_add():
         if request.method == 'POST':
+            from app.input_guard import trunc, trunc_text
             supplier = Supplier(
                 user_id=current_user.id,
-                company_name=request.form['company_name'],
-                category=request.form['category'],
-                criticality=request.form.get('criticality', 'medium'),
-                country=request.form.get('country', ''),
-                vat_id=request.form.get('vat_number', ''),
-                contact_email=request.form.get('contact_email', ''),
-                services_provided=request.form.get('services_provided', ''),
+                company_name=trunc(request.form.get('company_name', ''), 300, field='company_name'),
+                category=trunc(request.form.get('category', 'other'), 50, field='category'),
+                criticality=trunc(request.form.get('criticality', 'medium'), 20, field='criticality'),
+                country=trunc(request.form.get('country', ''), 100, field='country'),
+                vat_id=trunc(request.form.get('vat_number', ''), 30, field='vat_id'),
+                contact_email=trunc(request.form.get('contact_email', ''), 120, field='contact_email'),
+                services_provided=trunc_text(request.form.get('services_provided', ''), field='services_provided'),
                 contract_start=_parse_date(request.form.get('contract_start')),
                 avv_exists=request.form.get('avv_signed') == 'on',
                 avv_signed_at=_parse_date(request.form.get('avv_date')),
                 has_iso27001=request.form.get('iso27001_certified') == 'on',
-                notes=request.form.get('notes', ''),
+                notes=trunc_text(request.form.get('notes', ''), field='notes'),
             )
             db.session.add(supplier)
             db.session.commit()
@@ -76,6 +78,7 @@ def register_supply_chain_routes(bp):
     @bp.route('/supply-chain/import', methods=['POST'])
     @login_required
     @require_plan("professional")
+    @limiter.limit('10 per hour')  # CSV import is heavy — strict limit
     def supply_chain_import():
         file = request.files.get('csv_file')
         if not file or not file.filename.endswith('.csv'):
@@ -94,20 +97,21 @@ def register_supply_chain_routes(bp):
         imported = 0
         errors = []
 
+        from app.input_guard import trunc, trunc_text
         for row_num, row in enumerate(reader, start=2):
-            name = row.get('name', '').strip()
+            name = trunc(row.get('name', ''), 300, field='csv_name')
             if not name:
                 errors.append(f'Zeile {row_num}: Name fehlt')
                 continue
             supplier = Supplier(
                 user_id=current_user.id,
                 company_name=name,
-                category=row.get('category', 'other'),
-                criticality=row.get('criticality', 'medium'),
-                country=row.get('country', ''),
-                vat_id=row.get('vat_number', ''),
-                contact_email=row.get('contact_email', ''),
-                services_provided=row.get('services_provided', ''),
+                category=trunc(row.get('category', 'other'), 50),
+                criticality=trunc(row.get('criticality', 'medium'), 20),
+                country=trunc(row.get('country', ''), 100),
+                vat_id=trunc(row.get('vat_number', ''), 30),
+                contact_email=trunc(row.get('contact_email', ''), 120),
+                services_provided=trunc_text(row.get('services_provided', '')),
                 avv_exists=row.get('avv_signed', '').lower() in ('ja', 'yes', '1', 'true'),
                 has_iso27001=row.get('iso27001_certified', '').lower() in ('ja', 'yes', '1', 'true'),
             )
@@ -143,18 +147,19 @@ def register_supply_chain_routes(bp):
         if supplier.user_id != current_user.id:
             abort(403)
 
-        supplier.company_name = request.form.get('name', supplier.company_name)
-        supplier.category = request.form.get('category', supplier.category)
-        supplier.criticality = request.form.get('criticality', supplier.criticality)
-        supplier.country = request.form.get('country', supplier.country)
-        supplier.vat_id = request.form.get('vat_number', supplier.vat_id)
-        supplier.contact_email = request.form.get('contact_email', supplier.contact_email)
-        supplier.services_provided = request.form.get('services_provided', supplier.services_provided)
-        supplier.avv_exists = request.form.get('avv_signed') == 'on'
-        supplier.avv_signed_at = _parse_date(request.form.get('avv_date'))
-        supplier.avv_review_due = _parse_date(request.form.get('avv_expiry'))
-        supplier.has_iso27001 = request.form.get('iso27001_certified') == 'on'
-        supplier.notes = request.form.get('notes', supplier.notes)
+        from app.input_guard import trunc, trunc_text
+        supplier.company_name      = trunc(request.form.get('name', supplier.company_name), 300, field='company_name')
+        supplier.category          = trunc(request.form.get('category', supplier.category), 50, field='category')
+        supplier.criticality       = trunc(request.form.get('criticality', supplier.criticality), 20, field='criticality')
+        supplier.country           = trunc(request.form.get('country', supplier.country), 100, field='country')
+        supplier.vat_id            = trunc(request.form.get('vat_number', supplier.vat_id), 30, field='vat_id')
+        supplier.contact_email     = trunc(request.form.get('contact_email', supplier.contact_email), 120, field='contact_email')
+        supplier.services_provided = trunc_text(request.form.get('services_provided', supplier.services_provided or ''), field='services_provided')
+        supplier.avv_exists        = request.form.get('avv_signed') == 'on'
+        supplier.avv_signed_at     = _parse_date(request.form.get('avv_date'))
+        supplier.avv_review_due    = _parse_date(request.form.get('avv_expiry'))
+        supplier.has_iso27001      = request.form.get('iso27001_certified') == 'on'
+        supplier.notes             = trunc_text(request.form.get('notes', supplier.notes or ''), field='notes')
         supplier.updated_at = datetime.now(UTC)
         db.session.commit()
         flash('Lieferant aktualisiert.', 'success')
