@@ -34,17 +34,17 @@ SOURCES = [
         'format': 'rss',
     },
     {
-        # BSI moved their old RSS URL. Use Heise Security (German, reliable).
+        # Heise Security — confirmed working Atom feed (discovered from homepage link tags)
         'name': 'Heise Security',
-        'url':  'https://www.heise.de/security/news-atom.xml',
+        'url':  'https://www.heise.de/security/feed.xml',
         'lang': 'de',
         'format': 'atom',
     },
     {
-        # BSI Sicherheitshinweise — new URL after BSI site redesign
-        'name': 'BSI Sicherheitshinweise',
-        'url':  'https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/'
-                'RSSNewsfeed/RSSNewsfeed_Sicherheitshinweise.xml',
+        # BSI WID (Warning and Information Service) — official BSI advisory feed
+        # Old bsi.bund.de RSS paths are dead after site redesign; WID is the successor
+        'name': 'BSI WID Advisories',
+        'url':  'https://wid.cert-bund.de/content/public/securityAdvisory/rss',
         'lang': 'de',
         'format': 'rss',
     },

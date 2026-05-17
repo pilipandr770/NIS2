@@ -272,3 +272,45 @@ Policy: {_DOMAIN}/legal/datenschutz
 # MFA, encrypted storage, audit logs, incident response procedures.
 """
     return Response(content, mimetype='text/plain; charset=utf-8')
+
+
+@seo_bp.route('/security.txt')
+def security_txt_root():
+    """Redirect /security.txt → /.well-known/security.txt (RFC 9116 canonical location)."""
+    from flask import redirect
+    return redirect('/.well-known/security.txt', code=301)
+
+
+# ── ads.txt (IAB standard — no programmatic ads on this site) ────
+
+@seo_bp.route('/ads.txt')
+def ads_txt():
+    content = """\
+# ads.txt — https://nis2.store
+# This site does not use programmatic display advertising.
+# No ad network is authorised to serve ads on this domain.
+"""
+    return Response(content, mimetype='text/plain; charset=utf-8')
+
+
+# ── humans.txt (humanstxt.org convention) ────────────────────────
+
+@seo_bp.route('/humans.txt')
+def humans_txt():
+    content = f"""\
+/* TEAM */
+Developer & Founder: Andrii Pylypchuk
+Contact: info [at] andrii-it [dot] de
+Location: Frankfurt am Main, Deutschland
+Twitter: @nis2store
+
+/* THANKS */
+Flask, SQLAlchemy, Anthropic Claude AI, Bootstrap, Render.com
+
+/* SITE */
+Last update: {_TODAY}
+Language: Deutsch (de), English (en)
+Standards: HTML5, CSS3, WCAG 2.1 AA
+Components: Python 3.13, PostgreSQL, gunicorn
+"""
+    return Response(content, mimetype='text/plain; charset=utf-8')
