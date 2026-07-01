@@ -104,14 +104,16 @@ def create_app(config_name: str = None) -> Flask:
         response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
         # same-origin-allow-popups preserves OAuth/Stripe popup flows
         response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
-        # CSP: unsafe-inline kept for Jinja templates; Stripe domains whitelisted
+        # CSP: unsafe-inline kept for Jinja templates; CDN + Stripe + Google Fonts whitelisted
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://js.stripe.com "
-            "https://challenges.cloudflare.com; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+            "https://js.stripe.com https://challenges.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+            "https://fonts.googleapis.com; "
+            "font-src 'self' data: https://fonts.gstatic.com "
+            "https://cdn.jsdelivr.net; "
             "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
             "connect-src 'self' https://api.stripe.com; "
             "frame-src https://js.stripe.com https://challenges.cloudflare.com;"
         )
