@@ -33,7 +33,19 @@ def create_checkout(plan):
         flash('Ungültiger Plan.', 'danger')
         return redirect(url_for('payments.pricing'))
 
-    # Create Stripe customer once and persist it
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
+
+    # Verify stored customer ID is still valid; recreate if stale (test/live mode switch etc.)
+    if current_user.stripe_customer_id:
+        try:
+            stripe.Customer.retrieve(current_user.stripe_customer_id)
+        except stripe.error.InvalidRequestError:
+            _logger.warning('Stale stripe_customer_id %s cleared for user %s',
+                            current_user.stripe_customer_id, current_user.id)
+            current_user.stripe_customer_id = None
+            db.session.commit()
+
     if not current_user.stripe_customer_id:
         customer = stripe.Customer.create(
             email=current_user.email,

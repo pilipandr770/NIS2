@@ -77,12 +77,23 @@
 <script>
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+async function fetchWithRetry(url, opts, retries) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, opts);
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await sleep(2000 * (attempt + 1));  // 2s, 4s backoff
+    }
+  }
+}
+
 async function generateOneDoc(interviewId, docType, csrfToken) {
-  const r = await fetch(`/nis2/isms/interview/${interviewId}/generate-one`, {
+  const r = await fetchWithRetry(`/nis2/isms/interview/${interviewId}/generate-one`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
     body: JSON.stringify({doc_type: docType, regenerate: true})
-  });
+  }, 2);
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const data = await r.json();
   if (data.error) throw new Error(data.error);
@@ -91,10 +102,19 @@ async function generateOneDoc(interviewId, docType, csrfToken) {
   const jobId = data.job_id;
   if (!jobId) throw new Error('Kein job_id erhalten');
 
-  // Poll until done or error (up to 150 × 3s = 7.5 min)
+  // Poll until done or error (up to 150 × 3s = 7.5 min); retry up to 3× on network errors
+  let networkErrors = 0;
   for (let i = 0; i < 150; i++) {
     await sleep(3000);
-    const pr = await fetch(`/nis2/isms/interview/${interviewId}/generate-one/poll/${jobId}`);
+    let pr;
+    try {
+      pr = await fetch(`/nis2/isms/interview/${interviewId}/generate-one/poll/${jobId}`);
+    } catch (err) {
+      networkErrors++;
+      if (networkErrors >= 3) throw new Error('Netzwerkfehler beim Polling (3×): ' + err.message);
+      continue;  // retry poll on transient network error
+    }
+    networkErrors = 0;
     if (!pr.ok) throw new Error('Poll HTTP ' + pr.status);
     const pd = await pr.json();
     if (pd.status === 'done') return pd;
