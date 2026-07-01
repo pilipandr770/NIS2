@@ -55,9 +55,19 @@ def register():
         first_name = trunc(request.form.get('first_name', ''),  100, field='first_name')
         last_name  = trunc(request.form.get('last_name', ''),   100, field='last_name')
 
+        vat_input  = trunc(request.form.get('vat_id', '').strip(), 20, field='vat_id')
+
         # Validation
         if not email or not password:
             flash('E-Mail und Passwort sind erforderlich.', 'danger')
+            return render_template('auth/register.html')
+
+        # Business email only — reject freemail / disposable addresses.
+        # NIS2 targets companies; this also blocks the bulk of signup bots.
+        from services.email_policy import is_business_email
+        ok_email, email_reason = is_business_email(email)
+        if not ok_email:
+            flash(email_reason, 'danger')
             return render_template('auth/register.html')
 
         if password != password2:
@@ -72,6 +82,23 @@ def register():
             flash('Diese E-Mail-Adresse ist bereits registriert.', 'danger')
             return render_template('auth/register.html')
 
+        # Optional VAT (USt-IdNr) — if provided, validate against EU VIES.
+        # Invalid → reject. Unreachable VIES → accept but leave unverified
+        # (don't block real signups on VIES downtime).
+        vat_id = None
+        vat_verified = False
+        if vat_input:
+            from services.vat_lookup import VatLookupService
+            vat_res = VatLookupService().lookup(vat_input)
+            if vat_res.valid is False:
+                flash('Die angegebene USt-IdNr. ist ungültig. Bitte prüfen Sie Ihre Eingabe '
+                      'oder lassen Sie das Feld leer.', 'danger')
+                return render_template('auth/register.html')
+            vat_id = vat_input.upper().replace(' ', '')
+            vat_verified = vat_res.valid is True
+            if not company and vat_res.company_name:  # autofill from VIES
+                company = trunc(vat_res.company_name, 200, field='company_name')
+
         # Create user with 14-day trial
         trial_days = current_app.config.get('TRIAL_DAYS', 14)
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
@@ -83,6 +110,8 @@ def register():
             subscription_plan='trial',
             trial_ends_at=datetime.now(UTC) + timedelta(days=trial_days),
             registration_ip=client_ip[:45],
+            vat_id=vat_id,
+            vat_verified=vat_verified,
         )
         user.set_password(password)
         user.generate_confirmation_token()

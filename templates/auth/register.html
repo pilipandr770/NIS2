@@ -21,20 +21,30 @@
           <div class="row g-3">
             <div class="col-6">
               <label class="form-label fw-500">Vorname</label>
-              <input type="text" name="first_name" class="form-control" placeholder="Max">
+              <input type="text" name="first_name" class="form-control" placeholder="Max"
+                     value="{{ request.form.first_name or '' }}">
             </div>
             <div class="col-6">
               <label class="form-label fw-500">Nachname</label>
-              <input type="text" name="last_name" class="form-control" placeholder="Mustermann">
+              <input type="text" name="last_name" class="form-control" placeholder="Mustermann"
+                     value="{{ request.form.last_name or '' }}">
             </div>
             <div class="col-12">
               <label class="form-label fw-500">Unternehmen</label>
-              <input type="text" name="company_name" class="form-control" placeholder="Muster GmbH">
+              <input type="text" name="company_name" class="form-control" placeholder="Muster GmbH"
+                     value="{{ request.form.company_name or '' }}">
             </div>
             <div class="col-12">
-              <label class="form-label fw-500">E-Mail-Adresse <span class="text-danger">*</span></label>
+              <label class="form-label fw-500">USt-IdNr. <span class="text-muted small">(optional)</span></label>
+              <input type="text" name="vat_id" class="form-control" placeholder="DE123456789"
+                     value="{{ request.form.vat_id or '' }}">
+              <div class="form-text small">EU-USt-IdNr. wird geprüft (VIES) und Ihr Firmenname automatisch ergänzt.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-500">Geschäftliche E-Mail-Adresse <span class="text-danger">*</span></label>
               <input type="email" name="email" class="form-control" required autofocus
-                     placeholder="max@mustermann.de">
+                     placeholder="max@ihre-firma.de" value="{{ request.form.email or '' }}">
+              <div class="form-text small">Bitte Ihre Unternehmens-E-Mail — private Anbieter (Gmail, GMX &hellip;) werden nicht akzeptiert.</div>
             </div>
             <div class="col-12">
               <label class="form-label fw-500">Passwort <span class="text-danger">*</span></label>
