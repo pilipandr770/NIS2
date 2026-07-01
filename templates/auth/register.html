@@ -13,6 +13,11 @@
       <div class="card-body p-4">
         <form method="POST" action="{{ url_for('auth.register') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {# Honeypot: hidden from humans, bots fill it → server rejects. Do not remove. #}
+          <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden;">
+            <label>Website (nicht ausfüllen)</label>
+            <input type="text" name="website" tabindex="-1" autocomplete="off">
+          </div>
           <div class="row g-3">
             <div class="col-6">
               <label class="form-label fw-500">Vorname</label>

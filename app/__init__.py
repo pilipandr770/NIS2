@@ -21,6 +21,12 @@ def create_app(config_name: str = None) -> Flask:
 
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
+    # Behind Render's proxy: trust one hop of X-Forwarded-For/Proto so that
+    # request.remote_addr is the real client IP (needed for correct rate
+    # limiting and registration-IP logging), not the proxy address.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     # Load config
     cfg_cls = config[config_name]
     cfg_obj = cfg_cls() if isinstance(cfg_cls, type) else cfg_cls
