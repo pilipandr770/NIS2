@@ -74,7 +74,8 @@ Sitemap: {_DOMAIN}/sitemap.xml
 @seo_bp.route('/sitemap.xml')
 def sitemap():
     pages = [
-        ('/',                     '1.0', 'weekly'),
+        ('/',                     '1.0', 'daily'),
+        ('/blog/',                '0.9', 'daily'),
         ('/payments/pricing',     '0.9', 'monthly'),
         ('/auth/register',        '0.8', 'monthly'),
         ('/auth/login',           '0.7', 'monthly'),
@@ -82,6 +83,24 @@ def sitemap():
         ('/legal/agb',            '0.3', 'yearly'),
         ('/legal/datenschutz',    '0.3', 'yearly'),
     ]
+
+    # Dynamically add published blog posts
+    try:
+        from blog.models import BlogPost
+        blog_posts = (
+            BlogPost.query
+            .filter_by(is_published=True)
+            .with_entities(BlogPost.slug, BlogPost.published_at)
+            .order_by(BlogPost.published_at.desc())
+            .limit(200)
+            .all()
+        )
+        for post in blog_posts:
+            date_str = post.published_at.strftime('%Y-%m-%d') if post.published_at else _TODAY
+            pages.append((f'/blog/{post.slug}', '0.8', 'monthly'))
+    except Exception:
+        pass  # DB not available during build
+
     urls = '\n'.join(
         f"""  <url>
     <loc>{_DOMAIN}{path}</loc>
@@ -251,5 +270,47 @@ Policy: {_DOMAIN}/legal/datenschutz
 
 # This platform itself implements NIS2 §30 security controls:
 # MFA, encrypted storage, audit logs, incident response procedures.
+"""
+    return Response(content, mimetype='text/plain; charset=utf-8')
+
+
+@seo_bp.route('/security.txt')
+def security_txt_root():
+    """Redirect /security.txt → /.well-known/security.txt (RFC 9116 canonical location)."""
+    from flask import redirect
+    return redirect('/.well-known/security.txt', code=301)
+
+
+# ── ads.txt (IAB standard — no programmatic ads on this site) ────
+
+@seo_bp.route('/ads.txt')
+def ads_txt():
+    content = """\
+# ads.txt — https://nis2.store
+# This site does not use programmatic display advertising.
+# No ad network is authorised to serve ads on this domain.
+"""
+    return Response(content, mimetype='text/plain; charset=utf-8')
+
+
+# ── humans.txt (humanstxt.org convention) ────────────────────────
+
+@seo_bp.route('/humans.txt')
+def humans_txt():
+    content = f"""\
+/* TEAM */
+Developer & Founder: Andrii Pylypchuk
+Contact: info [at] andrii-it [dot] de
+Location: Frankfurt am Main, Deutschland
+Twitter: @nis2store
+
+/* THANKS */
+Flask, SQLAlchemy, Anthropic Claude AI, Bootstrap, Render.com
+
+/* SITE */
+Last update: {_TODAY}
+Language: Deutsch (de), English (en)
+Standards: HTML5, CSS3, WCAG 2.1 AA
+Components: Python 3.13, PostgreSQL, gunicorn
 """
     return Response(content, mimetype='text/plain; charset=utf-8')

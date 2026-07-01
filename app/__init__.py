@@ -63,6 +63,14 @@ def create_app(config_name: str = None) -> Flask:
     from seo import seo_bp
     app.register_blueprint(seo_bp)
 
+    from blog import blog_bp
+    from blog.models import BlogPost, BlogTag  # noqa — ensure Flask-Migrate discovers models
+    app.register_blueprint(blog_bp, url_prefix='/blog')
+
+    # Ensure blog tables exist — idempotent raw-SQL fallback so the app
+    # never crashes even if Alembic migrations haven't run yet.
+    _ensure_blog_tables(app)
+
     # ── NIS2 monitoring scheduler ─────────────────────────────────────────
     if not app.config.get('DISABLE_NIS2_SCHEDULER', False):
         try:
@@ -70,6 +78,14 @@ def create_app(config_name: str = None) -> Flask:
             app.nis2_scheduler = init_nis2_monitoring_scheduler(app)
         except Exception as exc:
             logger.warning('Monitoring scheduler not started: %s', exc)
+
+    # ── Blog scheduler ────────────────────────────────────────────────────
+    if not app.config.get('DISABLE_BLOG_SCHEDULER', False):
+        try:
+            from blog.scheduler import init_blog_scheduler
+            app.blog_scheduler = init_blog_scheduler(app)
+        except Exception as exc:
+            logger.warning('Blog scheduler not started: %s', exc)
 
     # ── Security headers ──────────────────────────────────────────────
     @app.after_request
@@ -99,6 +115,20 @@ def create_app(config_name: str = None) -> Flask:
 
     # ── CLI commands ──────────────────────────────────────────────────────
     import click
+
+    @app.cli.command('blog-news')
+    def blog_news():
+        """Manually trigger: fetch RSS article → translate → publish."""
+        from blog.scheduler import trigger_news_now
+        trigger_news_now(app)
+        click.echo('Blog news job done.')
+
+    @app.cli.command('blog-evergreen')
+    def blog_evergreen():
+        """Manually trigger: generate + publish next evergreen article."""
+        from blog.scheduler import trigger_evergreen_now
+        trigger_evergreen_now(app)
+        click.echo('Blog evergreen job done.')
 
     @app.cli.command('create-admin')
     @click.option('--email', prompt='Admin email')
@@ -139,6 +169,12 @@ def create_app(config_name: str = None) -> Flask:
     def method_not_allowed(e):
         return render_template('errors/405.html'), 405
 
+    @app.errorhandler(413)
+    def request_too_large(e):
+        # Triggered by MAX_CONTENT_LENGTH — the Flask equivalent of a
+        # "buffer overrun detected" error: request body exceeded allowed size.
+        return render_template('errors/413.html'), 413
+
     @app.errorhandler(500)
     def server_error(e):
         return render_template('errors/500.html'), 500
@@ -158,3 +194,69 @@ def _ensure_schema(app: Flask):
                 conn.commit()
     except Exception as exc:
         logger.error('Failed to ensure schema %s: %s', schema, exc)
+
+
+def _ensure_blog_tables(app: Flask):
+    """
+    Create blog tables via raw SQL if they don't exist.
+
+    This is a reliable startup-time fallback that runs regardless of whether
+    Alembic migrations completed successfully.  All statements use
+    CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS so repeated
+    calls are completely harmless.
+    """
+    schema = os.environ.get('DB_SCHEMA') or None
+    pfx    = f'{schema}.' if schema else ''
+
+    statements = [
+        # ── blog_tags ─────────────────────────────────────────────────────
+        f"""CREATE TABLE IF NOT EXISTS {pfx}blog_tags (
+            id   SERIAL      PRIMARY KEY,
+            name VARCHAR(60) NOT NULL,
+            slug VARCHAR(80) NOT NULL,
+            CONSTRAINT uq_blog_tags_name UNIQUE (name),
+            CONSTRAINT uq_blog_tags_slug UNIQUE (slug)
+        )""",
+
+        # ── blog_posts ────────────────────────────────────────────────────
+        f"""CREATE TABLE IF NOT EXISTS {pfx}blog_posts (
+            id               SERIAL        PRIMARY KEY,
+            slug             VARCHAR(220)  NOT NULL,
+            title            VARCHAR(300)  NOT NULL,
+            seo_title        VARCHAR(70),
+            seo_description  VARCHAR(165),
+            content_md       TEXT          NOT NULL DEFAULT '',
+            content_html     TEXT,
+            category         VARCHAR(20)   NOT NULL DEFAULT 'evergreen',
+            source_url       VARCHAR(500),
+            source_name      VARCHAR(120),
+            is_published     BOOLEAN       NOT NULL DEFAULT false,
+            published_at     TIMESTAMPTZ,
+            created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+            reading_time_min INTEGER                DEFAULT 5,
+            CONSTRAINT uq_blog_posts_slug UNIQUE (slug)
+        )""",
+
+        f"CREATE INDEX IF NOT EXISTS ix_blog_posts_slug         ON {pfx}blog_posts (slug)",
+        f"CREATE INDEX IF NOT EXISTS ix_blog_posts_is_published ON {pfx}blog_posts (is_published)",
+        f"CREATE INDEX IF NOT EXISTS ix_blog_posts_published_at ON {pfx}blog_posts (published_at)",
+
+        # ── blog_post_tags (M2M) ──────────────────────────────────────────
+        f"""CREATE TABLE IF NOT EXISTS {pfx}blog_post_tags (
+            post_id INTEGER NOT NULL
+                REFERENCES {pfx}blog_posts (id) ON DELETE CASCADE,
+            tag_id  INTEGER NOT NULL
+                REFERENCES {pfx}blog_tags  (id) ON DELETE CASCADE,
+            PRIMARY KEY (post_id, tag_id)
+        )""",
+    ]
+
+    try:
+        with app.app_context():
+            with db.engine.connect() as conn:
+                for stmt in statements:
+                    conn.execute(text(stmt))
+                conn.commit()
+        logger.info('Blog tables verified / created (schema=%s)', schema or 'public')
+    except Exception as exc:
+        logger.error('_ensure_blog_tables failed: %s', exc)

@@ -14,7 +14,7 @@ from flask import (abort, current_app, flash, jsonify, redirect,
 from services.security_helpers import require_plan
 from flask_login import current_user, login_required
 
-from app.extensions import db
+from app.extensions import db, limiter
 from ..models import Incident, IncidentDraft, IncidentTimeline, INCIDENT_CATEGORIES
 from .bsi_draft import generate_bsi_draft, STAGE_META
 
@@ -61,6 +61,7 @@ def register_incident_routes(bp):
     @bp.route('/incidents/create', methods=['GET', 'POST'])
     @login_required
     @require_plan("professional")
+    @limiter.limit('30 per hour', methods=['POST'])
     def incident_create():
         if request.method == 'POST':
             detected_str = request.form.get('detected_at', '')
@@ -69,14 +70,16 @@ def register_incident_routes(bp):
             detected_at = _parse_dt(detected_str) or datetime.now(UTC)
             occurred_at = _parse_dt(occurred_str)
 
+            from app.input_guard import trunc, trunc_text
             incident = Incident(
                 user_id=current_user.id,
-                title=request.form['title'],
-                category=request.form['category'],
-                severity=request.form.get('severity', 'medium'),
-                description=request.form.get('description', ''),
-                affected_systems=request.form.get('affected_systems', ''),
-                affected_data=request.form.get('affected_data', ''),
+                title=trunc(request.form.get('title', ''),    300, field='title'),
+                category=trunc(request.form.get('category', ''), 50, field='category'),
+                severity=trunc(request.form.get('severity', 'medium'), 20, field='severity'),
+                # Text columns: generous limit (100 KB) but not unlimited
+                description=trunc_text(request.form.get('description', ''),      field='description'),
+                affected_systems=trunc_text(request.form.get('affected_systems', ''), field='affected_systems'),
+                affected_data=trunc_text(request.form.get('affected_data', ''),   field='affected_data'),
                 detected_at=detected_at,
                 occurred_at=occurred_at,
             )
@@ -125,10 +128,11 @@ def register_incident_routes(bp):
         if incident.user_id != current_user.id:
             abort(403)
 
+        from app.input_guard import trunc, trunc_text
         old_status = incident.status
-        incident.status = request.form.get('status', incident.status)
-        incident.mitigation_steps = request.form.get('mitigation_steps', incident.mitigation_steps)
-        incident.root_cause = request.form.get('root_cause', incident.root_cause)
+        incident.status          = trunc(request.form.get('status', incident.status), 30, field='status')
+        incident.mitigation_steps = trunc_text(request.form.get('mitigation_steps', incident.mitigation_steps or ''), field='mitigation_steps')
+        incident.root_cause      = trunc_text(request.form.get('root_cause', incident.root_cause or ''), field='root_cause')
 
         resolved_str = request.form.get('resolved_at', '')
         if resolved_str:
@@ -145,6 +149,7 @@ def register_incident_routes(bp):
     @bp.route('/incidents/<int:incident_id>/generate-draft', methods=['POST'])
     @login_required
     @require_plan("professional")
+    @limiter.limit('10 per hour; 3 per minute')  # AI quota protection — each call hits Anthropic API
     def incident_generate_draft(incident_id: int):
         incident = Incident.query.get_or_404(incident_id)
         if incident.user_id != current_user.id:
@@ -199,7 +204,8 @@ def register_incident_routes(bp):
         incident = Incident.query.get_or_404(incident_id)
         if incident.user_id != current_user.id:
             abort(403)
-        draft = IncidentDraft.query.get_or_404(draft_id)
+        # IDOR fix: verify draft belongs to THIS incident (not just any draft_id)
+        draft = IncidentDraft.query.filter_by(id=draft_id, incident_id=incident_id).first_or_404()
         return render_template('nis2/incident_response/draft_view.html',
                                incident=incident,
                                draft=draft,
@@ -213,8 +219,10 @@ def register_incident_routes(bp):
         incident = Incident.query.get_or_404(incident_id)
         if incident.user_id != current_user.id:
             abort(403)
-        draft = IncidentDraft.query.get_or_404(draft_id)
-        draft.content = request.form.get('content', draft.content)
+        # IDOR fix: draft must belong to this incident
+        draft = IncidentDraft.query.filter_by(id=draft_id, incident_id=incident_id).first_or_404()
+        from app.input_guard import trunc_text
+        draft.content = trunc_text(request.form.get('content', draft.content), field='draft_content')
         draft.updated_at = datetime.now(UTC)
         db.session.commit()
         flash('Entwurf gespeichert.', 'success')
@@ -229,11 +237,12 @@ def register_incident_routes(bp):
         incident = Incident.query.get_or_404(incident_id)
         if incident.user_id != current_user.id:
             abort(403)
-        draft = IncidentDraft.query.get_or_404(draft_id)
-
-        draft.submitted_at = datetime.now(UTC)
-        draft.is_approved = True
-        draft.bsi_reference = request.form.get('bsi_reference', '').strip()
+        # IDOR fix: draft must belong to this incident
+        draft = IncidentDraft.query.filter_by(id=draft_id, incident_id=incident_id).first_or_404()
+        from app.input_guard import trunc
+        draft.submitted_at  = datetime.now(UTC)
+        draft.is_approved   = True
+        draft.bsi_reference = trunc(request.form.get('bsi_reference', ''), 100, field='bsi_reference')
 
         # Mark corresponding sent flag on the incident
         sent_field = _STAGE_SENT_FIELD.get(draft.stage)

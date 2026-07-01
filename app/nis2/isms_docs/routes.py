@@ -14,7 +14,7 @@ from flask import (abort, current_app, flash, jsonify, make_response,
 from services.security_helpers import require_plan
 from flask_login import current_user, login_required
 
-from app.extensions import db
+from app.extensions import db, limiter
 from ..models import ISMSDocument, ISMSInterview, ISMS_DOC_TYPES_MAP
 from .generator import ISMSDocumentGenerator, get_phase_definitions
 
@@ -131,6 +131,7 @@ def register_isms_routes(bp):
     @bp.route('/isms/interview/<int:interview_id>/generate-one', methods=['POST'])
     @login_required
     @require_plan("professional")
+    @limiter.limit('20 per hour; 5 per minute')  # AI quota protection
     def isms_generate_one(interview_id: int):
         """Start background generation job; return job_id immediately (no long HTTP connection)."""
         interview = ISMSInterview.query.get_or_404(interview_id)

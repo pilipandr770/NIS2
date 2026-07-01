@@ -608,9 +608,23 @@ class ISMSDocumentGenerator:
             company_name = context.get('company_name', 'Ihr Unternehmen')
             today_str = date.today().strftime('%d.%m.%Y')
             next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
+
+            # System prompt — cached (invariant across all document generations)
+            system_prompt = (
+                'Du bist ein erfahrener ISMS-Berater und zertifizierter Compliance-Experte '
+                'mit Spezialisierung auf NIS2UmsuCG (NIS2-Umsetzungsgesetz Deutschland, seit 6. Dez. 2025), '
+                'BSI IT-Grundschutz (BSI 200-1/2/3), ISO/IEC 27001:2022 und DSGVO.\n\n'
+                'Du erstellst vollständige, professionelle Compliance-Dokumente auf Deutsch. '
+                'Deine Dokumente sind:\n'
+                '- Sofort einsetzbar (keine Platzhalter wie [NAME] außer wenn explizit gewünscht)\n'
+                '- Rechtlich korrekt mit Bezug auf aktuelle BSIG-Paragraphen\n'
+                '- Unternehmensindividuell auf Basis der gegebenen Daten\n'
+                '- Im Markdown-Format mit klarer Kapitelstruktur\n'
+                '- Mindestens 1500 Wörter für Kerndokumente\n\n'
+                'Verwende immer die aktuellen Paragraphen des NIS2UmsuCG (§30, §32, §33, §38, §39 BSIG).'
+            )
+
             user_message = (
-                'Du bist ein erfahrener ISMS-Berater und Compliance-Experte '
-                'mit Spezialisierung auf NIS2UmsuCG und BSI-Standards.\n\n'
                 'Verbindliche Qualitätsregeln (ohne Ausnahmen):\n'
                 f'- Verwende den Unternehmensnamen exakt: {company_name}\n'
                 f'- Verwende konkrete Daten: Erstellt am {today_str}, Gültig ab {today_str}, nächste Überprüfung {next_review_str}\n'
@@ -619,10 +633,12 @@ class ISMSDocumentGenerator:
                 '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
                 + prompt
             )
+            # ISMS-Dokumente benötigen oft 2000-5000 Wörter → höheres Token-Limit.
             result = llm.generate(
                 user=user_message,
+                system=system_prompt,
                 tier=self.LLM_TIER,
-                max_tokens=4096,
+                max_tokens=8192,
                 temperature=0.2,
             )
             _log_usage(result.model, 'isms_doc', result.input_tokens, result.output_tokens)
