@@ -58,6 +58,9 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     last_login = db.Column(db.DateTime)
 
+    # Anti-abuse forensics — client IP captured at registration (IPv4/IPv6).
+    registration_ip = db.Column(db.String(45), index=True)
+
     def __repr__(self):
         return f'<User {self.email}>'
 

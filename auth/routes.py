@@ -32,6 +32,19 @@ def register():
 
     if request.method == 'POST':
         from app.input_guard import trunc
+
+        # ── Honeypot ─────────────────────────────────────────────────────────
+        # Hidden field no human ever fills. Bots auto-fill every input, so a
+        # non-empty value means a bot. Silently stop here — do NOT create a user
+        # and do NOT send a confirmation email (this is what gets our sending
+        # domain onto spam blocklists). Return the same success-looking flow so
+        # the bot gets no signal.
+        if request.form.get('website', '').strip():
+            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+            logger.warning('Registration honeypot triggered — bot blocked (ip=%s)', client_ip)
+            flash('Bitte bestätigen Sie Ihre E-Mail-Adresse, um fortzufahren.', 'success')
+            return redirect(url_for('auth.login'))
+
         # Truncate all string inputs to DB column sizes before any processing.
         # Prevents heap-DoS via oversized form payloads (Python equivalent of
         # buffer-overflow protection — no raw memory, but same DoS effect).
@@ -61,6 +74,7 @@ def register():
 
         # Create user with 14-day trial
         trial_days = current_app.config.get('TRIAL_DAYS', 14)
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
         user = User(
             email=email,
             company_name=company,
@@ -68,6 +82,7 @@ def register():
             last_name=last_name,
             subscription_plan='trial',
             trial_ends_at=datetime.now(UTC) + timedelta(days=trial_days),
+            registration_ip=client_ip[:45],
         )
         user.set_password(password)
         user.generate_confirmation_token()
