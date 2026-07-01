@@ -100,9 +100,24 @@ def create_app(config_name: str = None) -> Flask:
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
+        # same-origin-allow-popups preserves OAuth/Stripe popup flows
+        response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+        # CSP: unsafe-inline kept for Jinja templates; Stripe domains whitelisted
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://js.stripe.com "
+            "https://challenges.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' https://api.stripe.com; "
+            "frame-src https://js.stripe.com https://challenges.cloudflare.com;"
+        )
         if not app.debug:
             response.headers['Strict-Transport-Security'] = (
-                'max-age=31536000; includeSubDomains'
+                'max-age=63072000; includeSubDomains'
             )
         return response
 
