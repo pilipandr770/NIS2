@@ -33,6 +33,12 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(50))
     country = db.Column(db.String(2), default='DE')
 
+    # Business qualification (EU VIES). vat_verified=True only when VIES
+    # confirmed the number at registration; unverified means VIES was
+    # unreachable but the format was accepted.
+    vat_id = db.Column(db.String(20))
+    vat_verified = db.Column(db.Boolean, default=False, nullable=False)
+
     # Account status
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
