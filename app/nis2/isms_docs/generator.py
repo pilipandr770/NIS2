@@ -580,7 +580,9 @@ class ISMSDocumentGenerator:
     Takes structured interview data and returns Markdown content.
     """
 
-    MODEL = 'claude-sonnet-4-6'
+    # Logical model tier — the LLM adapter (services/llm.py) maps it to the
+    # active provider's best model (Claude Sonnet / Mistral Large).
+    LLM_TIER = 'large'
 
     def generate_document(self, doc_type: str, interview_data: dict) -> tuple[str, Optional[str]]:
         """
@@ -602,13 +604,7 @@ class ISMSDocumentGenerator:
             prompt = prompt_template  # use template as-is
 
         try:
-            import os
-            import anthropic
-            api_key = os.environ.get('ANTHROPIC_API_KEY')
-            if not api_key:
-                return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
-            client = anthropic.Anthropic(api_key=api_key)
-
+            from services import llm
             company_name = context.get('company_name', 'Ihr Unternehmen')
             today_str = date.today().strftime('%d.%m.%Y')
             next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
@@ -637,36 +633,20 @@ class ISMSDocumentGenerator:
                 '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
                 + prompt
             )
-
-            message = client.messages.create(
-                model=self.MODEL,
-                max_tokens=8192,  # ISMS-Dokumente benötigen oft 2000-5000 Wörter
-                system=[
-                    {
-                        'type': 'text',
-                        'text': system_prompt,
-                        'cache_control': {'type': 'ephemeral'},  # Prompt caching
-                    }
-                ],
-                messages=[
-                    {
-                        'role': 'user',
-                        'content': user_message,
-                    }
-                ],
+            # ISMS-Dokumente benötigen oft 2000-5000 Wörter → höheres Token-Limit.
+            result = llm.generate(
+                user=user_message,
+                system=system_prompt,
+                tier=self.LLM_TIER,
+                max_tokens=8192,
+                temperature=0.2,
             )
-            content = message.content[0].text if message.content else ''
-            _log_usage(
-                self.MODEL,
-                'isms_doc',
-                message.usage.input_tokens if message.usage else 0,
-                message.usage.output_tokens if message.usage else 0,
-            )
-            content = _sanitize_generated_content(content, context)
+            _log_usage(result.model, 'isms_doc', result.input_tokens, result.output_tokens)
+            content = _sanitize_generated_content(result.text, context)
             return content, None
 
         except Exception as exc:
-            logger.error('Claude API error generating %s: %s', doc_type, exc, exc_info=True)
+            logger.error('LLM API error generating %s: %s', doc_type, exc, exc_info=True)
             err_type = type(exc).__name__
             return '', f'KI-Generierung fehlgeschlagen ({err_type}): {exc}'
 

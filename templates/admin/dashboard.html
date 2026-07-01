@@ -92,9 +92,14 @@
             </thead>
             <tbody>
               {% for row in by_model %}
-              {% set cost = (row.input_tokens / 1000000 * 3.0 + row.output_tokens / 1000000 * 15.0) if 'sonnet' in row.model else (row.input_tokens / 1000000 * 0.8 + row.output_tokens / 1000000 * 4.0) %}
+              {# Approx. USD price per 1M tokens (in / out), per model family #}
+              {% if 'sonnet' in row.model %}{% set pin, pout = 3.0, 15.0 %}
+              {% elif 'mistral-large' in row.model %}{% set pin, pout = 2.0, 6.0 %}
+              {% elif 'mistral-small' in row.model %}{% set pin, pout = 0.2, 0.6 %}
+              {% else %}{% set pin, pout = 0.8, 4.0 %}{% endif %}
+              {% set cost = row.input_tokens / 1000000 * pin + row.output_tokens / 1000000 * pout %}
               <tr>
-                <td class="small"><span class="badge bg-secondary">{{ row.model.replace('claude-', '') }}</span></td>
+                <td class="small"><span class="badge bg-secondary">{{ row.model.replace('claude-', '').replace('-latest', '') }}</span></td>
                 <td class="text-end small">{{ '{:,}'.format(row.input_tokens) }}</td>
                 <td class="text-end small">{{ '{:,}'.format(row.output_tokens) }}</td>
                 <td class="text-end small">{{ row.calls }}</td>
@@ -219,7 +224,7 @@
               <tr>
                 <td class="small text-muted" style="white-space:nowrap">{{ log.created_at.strftime('%d.%m %H:%M') }}</td>
                 <td class="small">{{ log.endpoint }}</td>
-                <td class="small"><span class="badge bg-light text-dark">{{ log.model.replace('claude-', '') }}</span></td>
+                <td class="small"><span class="badge bg-light text-dark">{{ log.model.replace('claude-', '').replace('-latest', '') }}</span></td>
                 <td class="text-end small">{{ log.output_tokens }}</td>
               </tr>
               {% else %}

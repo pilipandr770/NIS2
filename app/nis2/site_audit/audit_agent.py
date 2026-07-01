@@ -7,7 +7,7 @@ Python-only mode (Render.com without Docker):
   ✅ live_check (HTTP headers, TLS, cookies, DNS)
   ✅ dns_audit  (SPF, DMARC, DKIM, DNSSEC via dig)
   ✅ cookie_check (Python)
-  ✅ Claude AI analysis via Anthropic API
+  ✅ AI analysis via the configured LLM provider (Anthropic or Mistral)
 
 External tools (skipped gracefully when not installed):
   ⚠️ nmap, nuclei, httpx, subfinder, nikto, testssl.sh
@@ -19,19 +19,18 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import shutil
 import subprocess
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
-import anthropic
-
 from .live_check import fetch_live_check
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+# Logical model tier — the LLM adapter (services/llm.py) maps it to the active
+# provider's model (Claude Haiku for Anthropic, Mistral Small for Mistral).
+LLM_TIER = "small"
 
 # ---------------------------------------------------------------------------
 # Severity helpers
@@ -156,24 +155,19 @@ Wichtig:
 """
 
 
-def _call_claude(user_message: str) -> List[Dict[str, Any]]:
-    """Call Claude API and parse JSON findings."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        logger.warning("ANTHROPIC_API_KEY not set — skipping AI analysis")
-        return []
+def _call_llm(user_message: str) -> List[Dict[str, Any]]:
+    """Call the active LLM provider and parse JSON findings."""
+    from services import llm
 
-    client = anthropic.Anthropic(api_key=api_key)
     try:
-        with client.messages.stream(
-            model=CLAUDE_MODEL,
-            max_tokens=4096,
+        result = llm.generate(
+            user=user_message,
             system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        ) as stream:
-            text = stream.get_final_text().strip()
-            usage = stream.get_final_message().usage
-        _log_usage(CLAUDE_MODEL, 'site_audit', usage.input_tokens, usage.output_tokens)
+            tier=LLM_TIER,
+            max_tokens=4096,
+        )
+        text = result.text.strip()
+        _log_usage(result.model, 'site_audit', result.input_tokens, result.output_tokens)
         # Strip markdown code fences if present
         if text.startswith("```"):
             text = text.split("```")[1]
@@ -181,10 +175,11 @@ def _call_claude(user_message: str) -> List[Dict[str, Any]]:
                 text = text[4:]
         return json.loads(text)
     except json.JSONDecodeError:
-        logger.exception("Claude returned non-JSON response")
+        logger.exception("LLM returned non-JSON response")
         return []
     except Exception:
-        logger.exception("Claude API call failed")
+        # Missing API key or provider error — skip AI analysis gracefully.
+        logger.warning("LLM analysis skipped or failed", exc_info=True)
         return []
 
 
@@ -429,7 +424,7 @@ TLS-Warnungen: {json.dumps(tls_info.get("warnings", []), ensure_ascii=False)}
 Analysiere diese Daten und erstelle ein JSON-Array mit Findings für den NIS2/DSGVO-Auditbericht.
 """
 
-    ai_findings = _call_claude(user_message)
+    ai_findings = _call_llm(user_message)
     if ai_findings:
         for f in ai_findings:
             f.setdefault("tool", "ai")

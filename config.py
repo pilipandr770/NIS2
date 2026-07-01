@@ -51,8 +51,12 @@ class Config:
         'MAIL_DEFAULT_SENDER', 'noreply@nis2-compliance.de'
     )
 
-    # ── AI (Claude) ───────────────────────────────────────────────────────
+    # ── AI (LLM provider) ─────────────────────────────────────────────────
+    # LLM_PROVIDER selects the backend: 'anthropic' (default) or 'mistral'
+    # (Mistral AI — EU data residency, for GDPR/NIS2-sensitive customers).
+    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'anthropic')
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
+    MISTRAL_API_KEY = os.environ.get('MISTRAL_API_KEY')
 
     # ── Stripe ────────────────────────────────────────────────────────────
     STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY')
