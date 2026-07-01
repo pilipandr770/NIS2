@@ -347,11 +347,21 @@ def run_basic_checks(domain: str) -> Dict[str, Any]:
     tls_issues = []
     if tls.get("valid") is False:
         score -= 30
-        tls_issues.append({"severity": "critical", "message": "TLS-Zertifikat ungültig"})
+        tls_issues.append({
+            "severity": "critical",
+            "title": "TLS-Zertifikat ungültig",
+            "description": "Das TLS-Zertifikat des Servers ist ungültig oder konnte nicht validiert werden.",
+            "recommendation": "Zertifikat erneuern (z. B. Let's Encrypt). HTTPS muss korrekt konfiguriert sein (§30 Abs. 2 Nr. 4 BSIG).",
+        })
     days = tls.get("days_remaining")
     if days is not None and days < 30:
         score -= 20
-        tls_issues.append({"severity": "high", "message": f"Zertifikat läuft in {days} Tag(en) ab"})
+        tls_issues.append({
+            "severity": "high",
+            "title": f"Zertifikat läuft in {days} Tag(en) ab",
+            "description": f"Das TLS-Zertifikat ist nur noch {days} Tag(e) gültig.",
+            "recommendation": "Zertifikat vor Ablauf erneuern, um Verbindungsausfälle zu vermeiden.",
+        })
     checks["tls"] = {
         "status": "PASSED" if not tls_issues else "FAILED",
         "issues": tls_issues,
@@ -371,14 +381,34 @@ def run_basic_checks(domain: str) -> Dict[str, Any]:
         "cross-origin-opener-policy": ("low", 2),
         "cross-origin-embedder-policy": ("low", 2),
     }
+    _header_rec = {
+        "content-security-policy": "Content-Security-Policy implementieren, um XSS-Angriffe zu verhindern (z. B. default-src 'self').",
+        "strict-transport-security": "HSTS aktivieren: Strict-Transport-Security: max-age=63072000; includeSubDomains; preload",
+        "x-frame-options": "X-Frame-Options: DENY oder SAMEORIGIN setzen, um Clickjacking zu verhindern.",
+        "x-content-type-options": "X-Content-Type-Options: nosniff setzen, um MIME-Sniffing zu verhindern.",
+        "referrer-policy": "Referrer-Policy: strict-origin-when-cross-origin setzen.",
+        "permissions-policy": "Permissions-Policy Header hinzufügen, um Browser-Features zu beschränken.",
+        "cross-origin-opener-policy": "Cross-Origin-Opener-Policy: same-origin setzen.",
+        "cross-origin-embedder-policy": "Cross-Origin-Embedder-Policy: require-corp setzen.",
+    }
     for h in missing:
         sev, penalty = header_weights.get(h, ("low", 2))
         score -= penalty
-        header_issues.append({"severity": sev, "message": f"Fehlender Header: {h}"})
+        header_issues.append({
+            "severity": sev,
+            "title": f"Fehlender Header: {h}",
+            "description": f"Der Security-Header '{h}' ist nicht gesetzt.",
+            "recommendation": _header_rec.get(h, f"Header '{h}' zum HTTP-Response hinzufügen."),
+        })
     # CSP weak
     if http.get("csp_strength") == "weak":
         score -= 5
-        header_issues.append({"severity": "medium", "message": "CSP enthält unsafe-inline / unsafe-eval"})
+        header_issues.append({
+            "severity": "medium",
+            "title": "Schwache Content-Security-Policy (unsafe-inline / unsafe-eval)",
+            "description": "Die CSP enthält 'unsafe-inline' oder 'unsafe-eval', was XSS-Angriffe ermöglicht.",
+            "recommendation": "unsafe-inline und unsafe-eval aus der CSP entfernen. Nonces oder Hashes verwenden.",
+        })
     checks["http_headers"] = {
         "status": "PASSED" if not header_issues else ("FAILED" if any(i["severity"] in ("critical", "high") for i in header_issues) else "WARNING"),
         "issues": header_issues,
@@ -389,7 +419,12 @@ def run_basic_checks(domain: str) -> Dict[str, Any]:
     cookie_issues = []
     for msg in cookies.get("insecure_cookies", []):
         score -= 5
-        cookie_issues.append({"severity": "medium", "message": msg})
+        cookie_issues.append({
+            "severity": "medium",
+            "title": f"Unsicheres Cookie: {msg.split(':')[0]}",
+            "description": msg,
+            "recommendation": "HttpOnly, Secure und SameSite=Strict Flags für alle Session-Cookies setzen.",
+        })
     checks["cookies"] = {
         "status": "PASSED" if not cookie_issues else "WARNING",
         "issues": cookie_issues,
@@ -400,13 +435,28 @@ def run_basic_checks(domain: str) -> Dict[str, Any]:
     dns_issues = []
     if dns.get("spf") == "missing":
         score -= 10
-        dns_issues.append({"severity": "high", "message": "SPF-Record fehlt (E-Mail-Spoofing-Risiko)"})
+        dns_issues.append({
+            "severity": "high",
+            "title": "SPF-Record fehlt",
+            "description": "Kein SPF-DNS-Eintrag gefunden. E-Mail-Spoofing ist möglich.",
+            "recommendation": "SPF-TXT-Record in DNS hinzufügen: 'v=spf1 include:<mail-provider> -all'",
+        })
     if dns.get("dmarc") == "missing":
         score -= 10
-        dns_issues.append({"severity": "high", "message": "DMARC-Record fehlt"})
+        dns_issues.append({
+            "severity": "high",
+            "title": "DMARC-Record fehlt",
+            "description": "Kein DMARC-Eintrag gefunden. E-Mail-Spoofing ist ohne Schutz möglich.",
+            "recommendation": "DMARC-TXT-Record unter _dmarc.<domain> hinzufügen: 'v=DMARC1; p=quarantine; rua=mailto:...'",
+        })
     if not dns.get("dnssec"):
         score -= 5
-        dns_issues.append({"severity": "low", "message": "DNSSEC nicht aktiviert"})
+        dns_issues.append({
+            "severity": "low",
+            "title": "DNSSEC nicht aktiviert",
+            "description": "DNSSEC ist nicht aktiviert. DNS-Hijacking-Angriffe sind möglich.",
+            "recommendation": "DNSSEC beim Domain-Registrar aktivieren.",
+        })
     checks["dns"] = {
         "status": "PASSED" if not dns_issues else ("FAILED" if any(i["severity"] == "high" for i in dns_issues) else "WARNING"),
         "issues": dns_issues,
