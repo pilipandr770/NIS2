@@ -104,7 +104,9 @@ def create_app(config_name: str = None) -> Flask:
     @click.option('--email', prompt='Admin email')
     @click.option('--password', prompt='Admin password', hide_input=True, confirmation_prompt=True)
     @click.option('--plan', default='enterprise')
-    def create_admin(email, password, plan):
+    @click.option('--first-name', default='Admin')
+    @click.option('--last-name', default='User')
+    def create_admin(email, password, plan, first_name, last_name):
         """Create or promote a user to super-admin."""
         user = User.query.filter_by(email=email).first()
         if user:
@@ -117,8 +119,8 @@ def create_app(config_name: str = None) -> Flask:
         else:
             user = User(
                 email=email,
-                first_name='Andrii',
-                last_name='Admin',
+                first_name=first_name,
+                last_name=last_name,
                 subscription_plan=plan,
                 is_admin=True,
                 is_active=True,

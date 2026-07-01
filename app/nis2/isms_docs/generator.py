@@ -580,7 +580,9 @@ class ISMSDocumentGenerator:
     Takes structured interview data and returns Markdown content.
     """
 
-    MODEL = 'claude-sonnet-4-6'
+    # Logical model tier — the LLM adapter (services/llm.py) maps it to the
+    # active provider's best model (Claude Sonnet / Mistral Large).
+    LLM_TIER = 'large'
 
     def generate_document(self, doc_type: str, interview_data: dict) -> tuple[str, Optional[str]]:
         """
@@ -602,12 +604,7 @@ class ISMSDocumentGenerator:
             prompt = prompt_template  # use template as-is
 
         try:
-            import os
-            import anthropic
-            api_key = os.environ.get('ANTHROPIC_API_KEY')
-            if not api_key:
-                return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
-            client = anthropic.Anthropic(api_key=api_key)
+            from services import llm
             company_name = context.get('company_name', 'Ihr Unternehmen')
             today_str = date.today().strftime('%d.%m.%Y')
             next_review_str = (date.today() + timedelta(days=365)).strftime('%d.%m.%Y')
@@ -622,20 +619,18 @@ class ISMSDocumentGenerator:
                 '- Ausgabe ausschließlich als sauberes Markdown-Dokument.\n\n'
                 + prompt
             )
-            with client.messages.stream(
-                model=self.MODEL,
+            result = llm.generate(
+                user=user_message,
+                tier=self.LLM_TIER,
                 max_tokens=4096,
                 temperature=0.2,
-                messages=[{'role': 'user', 'content': user_message}],
-            ) as stream:
-                content = stream.get_final_text()
-                usage = stream.get_final_message().usage
-            _log_usage(self.MODEL, 'isms_doc', usage.input_tokens, usage.output_tokens)
-            content = _sanitize_generated_content(content, context)
+            )
+            _log_usage(result.model, 'isms_doc', result.input_tokens, result.output_tokens)
+            content = _sanitize_generated_content(result.text, context)
             return content, None
 
         except Exception as exc:
-            logger.error('Claude API error generating %s: %s', doc_type, exc, exc_info=True)
+            logger.error('LLM API error generating %s: %s', doc_type, exc, exc_info=True)
             err_type = type(exc).__name__
             return '', f'KI-Generierung fehlgeschlagen ({err_type}): {exc}'
 

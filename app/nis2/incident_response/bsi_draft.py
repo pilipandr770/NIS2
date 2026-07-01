@@ -52,7 +52,9 @@ STAGE_META = {
     },
 }
 
-MODEL = 'claude-haiku-4-5-20251001'
+# Logical model tier — the LLM adapter maps it to the active provider's model
+# (Claude Haiku for Anthropic, Mistral Small for Mistral).
+LLM_TIER = 'small'
 
 
 def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None]:
@@ -66,32 +68,20 @@ def generate_bsi_draft(stage: str, incident_data: dict) -> tuple[str, str | None
         return '', f'Unbekannte Meldungsstufe: {stage}'
 
     try:
-        import os
-        import anthropic
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
-        if not api_key:
-            return '', 'ANTHROPIC_API_KEY nicht konfiguriert. Bitte setzen Sie die Umgebungsvariable auf Render.'
-        client = anthropic.Anthropic(api_key=api_key)
-        with client.messages.stream(
-            model=MODEL,
+        from services import llm
+        result = llm.generate(
+            user=(
+                'Du bist ein NIS2-Compliance-Experte und hilfst einem Unternehmen dabei, '
+                'eine gesetzeskonforme BSI-Meldung nach §32 BSIG zu erstellen.\n\n'
+                + prompt
+            ),
+            tier=LLM_TIER,
             max_tokens=2048,
-            messages=[
-                {
-                    'role': 'user',
-                    'content': (
-                        'Du bist ein NIS2-Compliance-Experte und hilfst einem Unternehmen dabei, '
-                        'eine gesetzeskonforme BSI-Meldung nach §32 BSIG zu erstellen.\n\n'
-                        + prompt
-                    ),
-                }
-            ],
-        ) as stream:
-            content = stream.get_final_text()
-            usage = stream.get_final_message().usage
-        _log_usage(MODEL, 'bsi_draft', usage.input_tokens, usage.output_tokens)
-        return content, None
+        )
+        _log_usage(result.model, 'bsi_draft', result.input_tokens, result.output_tokens)
+        return result.text, None
     except Exception as exc:
-        logger.error('Claude API error generating BSI draft %s: %s', stage, exc, exc_info=True)
+        logger.error('LLM API error generating BSI draft %s: %s', stage, exc, exc_info=True)
         err_type = type(exc).__name__
         return '', f'KI-Generierung fehlgeschlagen ({err_type}): {exc}'
 

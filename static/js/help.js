@@ -108,7 +108,7 @@ const HELP_CONTENT = {
       },
       {
         heading: 'Wie funktioniert die KI-Generierung?',
-        body: `<p>Die Plattform nutzt <strong>Claude AI (Anthropic)</strong> um auf Basis Ihrer Unternehmensdaten (Branche, Größe, Risikolage) passgenaue ISMS-Dokumente zu erstellen. Das Interview-Verfahren sammelt alle nötigen Informationen — die KI erstellt dann rechtssichere Texte auf Deutsch.</p>`
+        body: `<p>Die Plattform nutzt <strong>Mistral AI</strong> — ein KI-Modell aus der EU (Frankreich) mit Datenverarbeitung ausschließlich in Europa — um auf Basis Ihrer Unternehmensdaten (Branche, Größe, Risikolage) passgenaue ISMS-Dokumente zu erstellen. Das Interview-Verfahren sammelt alle nötigen Informationen — die KI erstellt dann rechtssichere Texte auf Deutsch.</p>`
       }
     ]
   },

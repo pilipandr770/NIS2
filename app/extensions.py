@@ -3,6 +3,8 @@ Shared Flask extensions — single source of truth.
 Import `db`, `login_manager`, `mail`, `csrf` from here everywhere.
 """
 
+import os
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
@@ -16,10 +18,15 @@ login_manager = LoginManager()
 mail = Mail()
 csrf = CSRFProtect()
 migrate = Migrate()
+
+# Rate-limit storage. With multiple gunicorn workers 'memory://' is per-worker
+# (limits are not shared and reset on restart). Set RATELIMIT_STORAGE_URI to a
+# shared backend in production, e.g. redis://<host>:6379 (Render Redis).
+_ratelimit_storage = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[],
-    storage_uri='memory://',
+    storage_uri=_ratelimit_storage,
 )
 
 login_manager.login_view = 'auth.login'
