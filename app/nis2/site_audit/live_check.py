@@ -201,12 +201,21 @@ def _check_tls(hostname: str) -> Dict[str, Any]:
                         result["warnings"].append(
                             f"Zertifikat läuft in {days} Tag(en) ab!"
                         )
+    except ssl.SSLCertVerificationError as exc:
+        # Connected successfully but certificate is genuinely invalid
+        result["valid"] = False
+        result["warnings"].append(f"SSL-Zertifikat ungültig: {exc}")
     except ssl.SSLError as exc:
         result["valid"] = False
         result["warnings"].append(f"SSL-Fehler: {exc}")
+    except (socket.timeout, ConnectionRefusedError, OSError) as exc:
+        # Could not reach the host — cannot determine cert validity
+        # (common when scanning own domain behind Cloudflare proxy)
+        result["valid"] = None
+        result["warnings"].append(f"TLS-Verbindung nicht erreichbar: {exc}")
     except Exception as exc:
-        result["valid"] = False
-        result["warnings"].append(f"TLS-Check fehlgeschlagen: {exc}")
+        result["valid"] = None
+        result["warnings"].append(f"TLS-Check nicht durchführbar: {exc}")
     return result
 
 
@@ -362,8 +371,9 @@ def run_basic_checks(domain: str) -> Dict[str, Any]:
             "description": f"Das TLS-Zertifikat ist nur noch {days} Tag(e) gültig.",
             "recommendation": "Zertifikat vor Ablauf erneuern, um Verbindungsausfälle zu vermeiden.",
         })
+    tls_unreachable = tls.get("valid") is None
     checks["tls"] = {
-        "status": "PASSED" if not tls_issues else "FAILED",
+        "status": "PASSED" if not tls_issues else ("WARNING" if tls_unreachable else "FAILED"),
         "issues": tls_issues,
     }
 
